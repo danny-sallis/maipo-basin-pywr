@@ -1,0 +1,18 @@
+,class,value,node
+InstanstaneousDeficit,InstantaneousDeficictNodeRecorder,0.0,PT1
+Total Contracts Made,NumpyArrayParameterRecorder,2028.0,
+Maximum Deficit,MaximumDeficitNodeRecorder,1.3079659823546714,PT1
+Caudal en salida promedio,MeanFlowNodeRecorder,48.146496253626,Salida Maipo
+deficit PT1,TotalDeficitNodeRecorder,393.97701568492744,PT1
+ReservoirCost,ReservoirCostRecorder,0.0,
+RollingMeanFlowElManzano,RollingMeanFlowNodeRecorder,36.43086800446666,El Manzano
+PurchasesCost,PurchasesCostRecorder,0.0,
+PremiumAprilCost,PurchasesCostRecorder,304247015.74333644,
+PremiumOctoberCost,PurchasesCostRecorder,304247015.74333644,
+AprilSeasonRollingMeanFlowElManzano,SeasonRollingMeanFlowNodeRecorder,36.43086800446666,El Manzano
+AprilContractCost,ContractCostRecorder,28219.547046754815,
+OctoberSeasonRollingMeanFlowElManzano,SeasonRollingMeanFlowNodeRecorder,36.43086800446666,El Manzano
+OctoberContractCost,ContractCostRecorder,28219.547046754815,
+TotalCost,AggregatedRecorder,608550470.5807664,
+failure_frequency_PT1,DeficitFrequencyNodeRecorder,0.012692307692307694,PT1
+Max Deficit Duration,EventDurationRecorder,4.066666666666666,

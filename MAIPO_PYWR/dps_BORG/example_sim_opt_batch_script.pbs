@@ -1,0 +1,14 @@
+# example batch script for a linux cluster to run a parallelized simulation-optimization
+# experiment using example_sim_opt.py and borg.py files
+# documentation: https://waterprogramming.wordpress.com/2017/03/06/using-borg-in-parallel-and-serial-with-a-python-wrapper/
+
+#PBS -l nodes=8:ppn=16
+#PBS -l walltime=24:00:00
+#PBS -j oe
+#PBS -o pysedsim_output.out
+
+cd $PBS_O_WORKDIR
+source /etc/profile.d/modules.sh
+module load openmpi-1.6.5-intel-x86_64/gnu
+module load python-2.7.5
+mpirun python example_sim_opt_caller.py

@@ -1,0 +1,690 @@
+{
+    "metadata": {
+        "title": "Maipo Basin Model",
+        "description": "Simulation-only AGU schematic of the model in JSON format for simulated flow used in the WEAP. 15 climate change scenarios between 2020 and 2050. KW",
+        "minimum_version": "0.1"
+    },
+
+    "timestepper": {
+        "start": "2009-05-17",
+        "end": "2010-10-18",
+        "timestep": 1
+    },
+
+    "scenarios": [
+        {
+            "name": "climate change",
+            "size": 15
+        }
+      ],
+
+    "nodes": [
+        {
+            "name": "Yeso",
+            "type": "Catchment",
+            "flow": "flow_Yeso"
+        },
+        {
+            "name": "Maipo",
+            "type": "Catchment",
+            "flow": "flow_Maipo"
+        },
+        {
+            "name": "Colorado",
+            "type": "Catchment",
+            "flow": "flow_Colorado"
+        },
+        {
+            "name": "Volcan",
+            "type": "Catchment",
+            "flow": "flow_Volcan"
+        },
+        {
+            "name": "Laguna negra",
+            "type": "Catchment",
+            "flow": "flow_Laguna Negra"
+        },
+        {
+            "name": "Maipo extra",
+            "type": "Catchment",
+            "flow": "flow_Maipo extra"
+        },
+        {
+            "name": "Embalse",
+            "type": "Storage",
+            "min_volume": 15,
+            "max_volume": 220,
+            "initial_volume": 220,
+            "cost": -1000
+        },
+        {
+            "name": "Embalse Maipo",
+            "type": "Storage",
+            "min_volume": 0,
+            "max_volume": 220,
+            "initial_volume": 0.0,
+            "initial_volume_pc": 0.0,
+            "cost": -800
+        },
+        {
+            "name": "Regla Embalse Maipo",
+            "type": "River",
+            "min_flow": "descarga_regla_Maipo",
+            "cost": 100
+        },
+        {
+            "name": "Rio Yeso Alto",
+            "type": "River"
+        },
+        {
+            "name": "Rio Yeso Bajo",
+            "type": "River"
+        },
+        {
+            "name": "Rio Maipo Alto",
+            "type": "River"
+        },
+        {
+            "name": "Rio Colorado",
+            "type": "River"
+        },
+        {
+            "name": "Estero del Manzanito",
+            "type": "River"
+        },
+        {
+            "name": "aux_Maipo Extra",
+            "type": "River"
+        },
+        {
+            "name": "Acueducto Laguna Negra",
+            "type": "River",
+            "max_flow": "aux_acueductoln",
+            "cost": -1000
+        },
+        {
+            "name": "Acueducto El Yeso",
+            "type": "River"
+        },
+        {
+            "name": "Acueducto Maipo",
+            "type": "River",
+            "cost": -200
+        },
+        {
+            "name": "Acueducto El Yeso 2",
+            "type": "River",
+            "min_flow": "descarga_adicional_real",
+            "cost": 100
+        },
+        {
+            "name": "Retorno al Maipo",
+            "type": "River",
+            "cost": -100
+        },
+        {
+            "name": "aux_Acueducto Yeso",
+            "type": "River"
+        },
+        {
+            "name": "El Manzano",
+            "type": "River"
+        },
+        {
+            "name": "Rio Maipo bajo El Manzano",
+            "type": "River"
+        },
+        {
+            "name": "Captacion PT",
+            "type": "River"
+        },
+        {
+            "name": "Extraccion a Acueducto Laguna Negra",
+            "type": "River",
+            "max_flow": "aux_extraccionln"
+        },
+        {
+            "name": "Toma a PT1",
+            "type": "River",
+            "max_flow": "derechos_sobrantes_contrato",
+            "cost": -300
+        },
+        {
+            "name": "PT1",
+            "type": "Output",
+            "max_flow":{
+                "type": "dataframe",
+                "url" : "data/Extra data.csv",
+                "parse_dates": true,
+                "index_col": 0,
+                "dayfirst": true,
+                "column": "PT1"
+            },
+            "cost": -10000
+        },
+        {
+            "name": "PT2",
+            "type": "Output",
+            "max_flow": "demanda_PT2",
+            "cost": -10000
+        },
+        {
+            "name": "Las Perdicez",
+            "type": "River"
+        },
+        {
+            "name": "Filtraciones Embalse",
+            "type": "River",
+            "max_flow": "aux_filtraciones",
+            "cost": -9999
+        },
+        {
+            "name": "Filtraciones Embalse Maipo",
+            "type": "River",
+            "max_flow": "aux_filtraciones",
+            "cost": -9999
+        },
+        {
+            "name": "Descarga Embalse",
+            "type": "River",
+            "min_flow": "descarga_embalse_real",
+            "cost": -100
+        },
+        {
+            "name": "Descarga Embalse Maipo",
+            "type": "River",
+            "min_flow": "descarga_embalse_real_Maipo"
+        },
+        {
+            "name": "aux_Salida Maipo",
+            "type": "River",
+            "min_flow": "flujo_excedentes_Yeso"
+        },
+        {
+            "name": "aux_PT1",
+            "type": "River"
+        },
+        {
+            "name": "Salida Maipo",
+            "type": "Output",
+            "cost": -500
+        }
+    ],
+    "edges": [
+        ["Yeso", "Rio Yeso Alto"],
+        ["Rio Yeso Alto", "Embalse"],
+        ["Rio Maipo Alto", "Embalse Maipo"],
+        ["Embalse Maipo", "Descarga Embalse Maipo"],
+        ["Embalse Maipo", "Acueducto Maipo"],
+        ["Acueducto Maipo", "aux_PT1"],
+        ["Embalse Maipo", "Regla Embalse Maipo"],
+        ["Regla Embalse Maipo", "El Manzano"],
+        ["Descarga Embalse Maipo", "El Manzano"],
+        ["Embalse", "Acueducto El Yeso 2"],
+        ["Acueducto El Yeso 2", "Acueducto El Yeso"],
+        ["Acueducto El Yeso", "aux_Acueducto Yeso"],
+        ["aux_Acueducto Yeso", "aux_PT1"],
+        ["Embalse", "Descarga Embalse"],
+        ["Descarga Embalse", "Rio Yeso Bajo"],
+        ["Rio Yeso Bajo", "El Manzano"],
+        ["Laguna negra", "Acueducto Laguna Negra"],
+        ["Acueducto Laguna Negra", "aux_PT1"],
+        ["Laguna negra", "Estero del Manzanito"],
+        ["Estero del Manzanito", "Rio Yeso Bajo"],
+        ["Colorado", "Rio Colorado"],
+        ["Rio Colorado", "El Manzano"],
+        ["Volcan", "Rio Maipo Alto"],
+        ["Maipo", "Rio Maipo Alto"],
+        ["Maipo extra", "aux_Maipo Extra"],
+        ["aux_Maipo Extra", "El Manzano"],
+        ["El Manzano", "Rio Maipo bajo El Manzano"],
+        ["Rio Maipo bajo El Manzano", "Extraccion a Acueducto Laguna Negra"],
+        ["Extraccion a Acueducto Laguna Negra", "Acueducto Laguna Negra"],
+        ["Rio Maipo bajo El Manzano", "Las Perdicez"],
+        ["Rio Maipo bajo El Manzano", "Captacion PT"],
+        ["Captacion PT", "Toma a PT1"],
+        ["Toma a PT1", "aux_PT1"],
+        ["aux_PT1", "PT1"],
+        ["Captacion PT", "aux_Salida Maipo"],
+        ["aux_Salida Maipo", "Salida Maipo"],
+        ["Embalse", "Filtraciones Embalse"],
+        ["Filtraciones Embalse","Rio Yeso Bajo"],
+        ["Embalse Maipo", "Filtraciones Embalse Maipo"],
+        ["Filtraciones Embalse Maipo","El Manzano"],
+        ["Acueducto El Yeso", "Retorno al Maipo"],
+        ["Retorno al Maipo", "El Manzano"],
+        ["Las Perdicez", "PT2"]
+    ],
+
+    "parameters": {
+        "drought_status": {
+            "type": "dataframe",
+            "url" : "data/SRI3.csv",
+            "parse_dates": true,
+            "index_col": "Timestamp",
+            "dayfirst": true,
+            "scenario": "climate change"
+        },
+        "DP_index": {
+            "type": "fakeyearindexparameter",
+            "dates": ["2006-07-12", "2007-03-29","2007-12-14","2008-08-30","2009-05-17", "2010-02-01", "2010-10-19"],
+            "comment": "convert a specific date to integer, from 0 to 6, depending on the 5-year development plan period 2020-2050"
+        },
+        "purchases_value": {
+            "type": "AccumulatedIndexedArrayParameter",
+            "index_parameter": "DP_index",
+            "parameters": [
+                {"type": "constant", "value": 0, "name": "purchase0", "is_variable": false, "upper_bounds": 813},
+                {"type": "constant", "value": 0, "name": "purchase1", "is_variable": false, "upper_bounds": 813},
+                {"type": "constant", "value": 0, "name": "purchase2", "is_variable": false, "upper_bounds": 813},
+                {"type": "constant", "value": 0, "name": "purchase3", "is_variable": false, "upper_bounds": 813},
+                {"type": "constant", "value": 0, "name": "purchase4", "is_variable": false, "upper_bounds": 813},
+                {"type": "constant", "value": 0, "name": "purchase5", "is_variable": false, "upper_bounds": 813},
+                {"type": "constant", "value": 0, "name": "purchase6", "is_variable": false, "upper_bounds": 813}
+             ],
+            "comment": "parameter that set the shares bought at a determinated dp, accumulating past purchases"
+        },
+        "flow_Yeso": {
+            "type": "dataframe",
+            "url" : "data/YESO.csv",
+            "parse_dates": true,
+            "index_col": 0,
+            "dayfirst": true,
+            "scenario": "climate change"
+        },
+        "flow_Maipo": {
+            "type": "dataframe",
+            "url" : "data/MAIPO.csv",
+            "parse_dates": true,
+            "index_col": "Timestamp",
+            "dayfirst": true,
+            "scenario": "climate change"
+        },
+        "flow_Colorado": {
+            "type": "dataframe",
+            "url" : "data/COLORADO.csv",
+            "parse_dates": true,
+            "index_col": 0,
+            "dayfirst": true,
+            "scenario": "climate change"
+        },
+        "flow_Volcan": {
+            "type": "dataframe",
+            "url" : "data/VOLCAN.csv",
+            "parse_dates": true,
+            "index_col": 0,
+            "dayfirst": true,
+            "scenario": "climate change"
+        },
+        "flow_Laguna Negra": {
+            "type": "dataframe",
+            "url" : "data/LAGUNANEGRA.csv",
+            "parse_dates": true,
+            "index_col": 0,
+            "dayfirst": true,
+            "scenario": "climate change"
+        },
+        "flow_Maipo extra": {
+            "type": "dataframe",
+            "url" : "data/MAIPOEXTRA.csv",
+            "parse_dates": true,
+            "index_col": 0,
+            "dayfirst": true,
+            "scenario": "climate change"
+        },
+        "aux_acueductoln":{
+            "type": "dataframe",
+            "url" : "data/Extra data.csv",
+            "parse_dates": true,
+            "index_col": 0,
+            "dayfirst": true,
+            "column": "Acueducto Laguna Negra"
+        },
+        "aux_extraccionln":{
+            "type": "dataframe",
+            "url" : "data/Extra data.csv",
+            "parse_dates": true,
+            "index_col": 0,
+            "dayfirst": true,
+            "column": "Extraccion Laguna Negra"
+        },
+        "aux_acueductoyeso":{
+            "type": "dataframe",
+            "url" : "data/Extra data.csv",
+            "parse_dates": true,
+            "index_col": 0,
+            "dayfirst": true,
+            "column": "Acueducto El Yeso"
+        },
+        "aux_filtraciones":{
+            "type": "dataframe",
+            "url" : "data/Extra data.csv",
+            "parse_dates": true,
+            "index_col": 0,
+            "dayfirst": true,
+            "column": "Filtraciones"
+        },
+        "threshold_laobra":{
+            "type": "dataframe",
+            "url" : "data/Extra data.csv",
+            "parse_dates": true,
+            "index_col": 0,
+            "dayfirst": true,
+            "column": "Threshold"
+        },
+        "discount_rate_factor":{
+            "type": "dataframe",
+            "url" : "data/Extra data.csv",
+            "parse_dates": true,
+            "index_col": 0,
+            "dayfirst": true,
+            "column": "Discount rate factor"
+        },
+        "descarga_embalse": {
+            "type": "parameterthreshold",
+            "parameter": "caudal_naturalizado",
+            "threshold": 60.48,
+            "predicate": "LT",
+            "values": [0, 1]
+        },
+        "descarga_embalse_real": {
+            "type": "aggregated",
+            "agg_func": "product",
+            "parameters": [
+                "descarga_embalse", "flow_Yeso"]
+        },
+        "descarga_embalse_real_Maipo": {
+            "type": "aggregated",
+            "agg_func": "product",
+            "parameters": [
+                "flow_Volcan+Maipo", "descarga_embalse"]
+        },
+        "requisito_embalse": {
+            "type": "storagethreshold",
+            "storage_node": "Embalse",
+            "threshold": 140,
+            "predicate": "LT",
+            "values": [1, 0]
+        },
+        "requisito_embalse_Maipo": {
+            "type": "storagethreshold",
+            "storage_node": "Embalse Maipo",
+            "threshold": 140,
+            "predicate": "LT",
+            "values": [1, 0]
+        },
+        "descarga_adicional": {
+            "type": "dataframe",
+            "url" : "data/Extra data.csv",
+            "parse_dates": true,
+            "index_col": 0,
+            "dayfirst": true,
+            "column": "AdicionalEmbalse"
+        },
+        "descarga_adicional2": {
+            "type": "aggregated",
+            "agg_func": "product",
+            "parameters": [
+                "descarga_adicional",
+                "requisito_embalse"
+                ]
+        },
+        "descarga_adicional_Maipo": {
+            "type": "aggregated",
+            "agg_func": "product",
+            "parameters": [
+                "descarga_adicional",
+                "requisito_embalse_Maipo"
+                ]
+        },
+        "descarga_adicional_real": {
+            "type": "aggregated",
+            "agg_func": "product",
+            "parameters": [
+                "descarga_adicional2",
+                "aux_acueductoyeso"
+                ]
+        },
+        "descarga_regla_Maipo": {
+            "type": "aggregated",
+            "agg_func": "product",
+            "parameters": [
+                "descarga_adicional_Maipo",
+                "aux_acueductoyeso"
+                ]
+        },
+        "caudal_naturalizado": {
+            "type": "aggregated",
+            "agg_func": "sum",
+            "parameters": [
+                "flow_Maipo",
+                "flow_Yeso",
+                "flow_Colorado",
+                "flow_Laguna Negra",
+                "flow_Maipo extra",
+                "flow_Volcan"
+            ]
+        },
+        "flujo_excedentes_Yeso": {
+            "type": "storagethreshold",
+            "storage_node": "Embalse Maipo",
+            "threshold": 220,
+            "predicate": "LT",
+            "values": [60.48, 0]
+        },
+
+        "flow_Volcan+Maipo": {
+            "type": "aggregated",
+            "agg_func": "sum",
+            "parameters": [
+                "flow_Maipo",
+                "flow_Volcan"
+            ]
+        },
+        "estacionalidad_distribucion": {
+            "type": "dataframe",
+            "url" : "data/Extra data.csv",
+            "parse_dates": true,
+            "index_col": 0,
+            "dayfirst": true,
+            "column": "Estacionalidad"
+        },
+        "derechos_sobrantes": {
+            "type": "aggregated",
+            "agg_func": "sum",
+            "parameters": [
+                "max_flow_perdicez",
+                "demanda_PT2_negativa"
+                ]
+        },
+        "contrato": {
+            "type": "constant",
+            "value": 0
+        },
+        "derechos_sobrantes_contrato": {
+            "type": "aggregated",
+            "agg_func": "sum",
+            "parameters": [
+                "derechos_sobrantes",
+                "contrato"
+                ]
+        },
+        "max_flow_perdicez": {
+            "type": "aggregated",
+            "agg_func": "product",
+            "parameters": [
+                "caudal_naturalizado",
+                "estacionalidad_distribucion",
+                "AA_total_shares_fraction"
+                ]
+        },
+        "demanda_PT2": {
+            "type": "dataframe",
+            "url" : "data/Extra data.csv",
+            "parse_dates": true,
+            "index_col": 0,
+            "dayfirst": true,
+            "column": "PT2"
+        },
+        "demanda_PT2_negativa": {
+            "type": "negative",
+            "parameter": "demanda_PT2"
+        },
+        "AA_total_shares": {
+            "type": "aggregated",
+            "agg_func": "sum",
+            "parameters": [1917, "purchases_value", "contract_value"],
+            "comment": "expressed as absolute value of total shares"
+        },
+        "AA_total_shares_fraction": {
+            "type": "aggregated",
+            "agg_func": "product",
+            "parameters": ["AA_total_shares", 0.0001229558588466740],
+            "comment": "expressed as fraction of total shares"
+        },
+        "Maipo_capacity": {
+            "type": "constant",
+            "value": 0,
+            "is_variable": false,
+            "lower_bounds": 0,
+            "upper_bounds": 300
+        },
+        "Maipo_max_volume": {
+            "type": "indexedarrayparameter",
+            "index_parameter": "Maipo_constructed",
+            "parameters": [
+               {"type": "constant", "value": 0, "name": "Maipo_current_capacity"},
+               "Maipo_capacity"
+             ]
+        },
+        "Maipo_construction_dp": {
+            "type": "constant",
+            "value": 7,
+            "is_variable": false,
+            "upper_bounds": 7,
+            "lower_bounds": 2,
+            "comment": "Choose any dp from 2025 to 2045. 7 means never constructed"
+        },
+        "Maipo_constructed":{
+            "type": "parameterthreshold",
+            "threshold": "Maipo_construction_dp",
+            "parameter": "DP_index",
+            "predicate": ">=",
+            "comment": "indicates if the reservoir is active in a specific DP period"
+        }
+    },
+
+    "recorders": {
+      "RollingMeanFlowElManzano": {
+            "type": "RollingMeanFlowNodeRecorder",
+            "node": "El Manzano",
+            "timesteps": 520
+        },
+      "failure_frequency_PT1": {
+          "type": "DeficitFrequencyNodeRecorder",
+          "node": "PT1",
+          "is_objective": "minimize",
+          "comment": "Frequency deficit recorded on PT1"
+      },
+      "ReservoirCost": {
+          "type": "ReservoirCostRecorder",
+          "capacity": "Maipo_capacity",
+          "construction_dp": "Maipo_construction_dp",
+          "discount_rate": 0.035,
+          "unit_costs": [9999,20,30,40,50,60,0],
+          "fixed_cost": 100
+      },
+      "PurchasesCost": {
+          "type": "PurchasesCostRecorder",
+          "purchases": "purchases_value",
+          "mean_flow": "RollingMeanFlowElManzano",
+          "discount_rate": 0.035,
+          "coeff": 1
+      },
+      "AprilSeasonRollingMeanFlowElManzano": {
+        "type": "SeasonRollingMeanFlowNodeRecorder",
+        "node": "El Manzano",
+        "first_week": 1,
+        "last_week": 27,
+        "years": 5
+    },
+    "OctoberSeasonRollingMeanFlowElManzano": {
+        "type": "SeasonRollingMeanFlowNodeRecorder",
+        "node": "El Manzano",
+        "first_week": 27,
+        "last_week": 53,
+        "years": 5
+    },
+      "PremiumAprilCost": {
+        "type": "PurchasesCostRecorder",
+        "purchases": "april_contract",
+        "mean_flow": "RollingMeanFlowElManzano",
+        "discount_rate": 0.035,
+        "coeff": 0.1
+    },
+    "PremiumOctoberCost": {
+        "type": "PurchasesCostRecorder",
+        "purchases": "october_contract",
+        "mean_flow": "RollingMeanFlowElManzano",
+        "discount_rate": 0.035,
+        "coeff": 0.1
+    },
+    "AprilContractCost": {
+        "type": "ContractCostRecorder",
+        "contract": "april_contract",
+        "mean_flow": "AprilSeasonRollingMeanFlowElManzano",
+        "purchases": "purchases_value",
+        "discount_rate":0.035,
+        "max_cost": 100,
+        "gradient": -1,
+        "coeff": 1,
+        "week_no": 1
+    },
+    "OctoberContractCost": {
+        "type": "ContractCostRecorder",
+        "contract": "october_contract",
+        "mean_flow": "OctoberSeasonRollingMeanFlowElManzano",
+        "purchases": "purchases_value",
+        "discount_rate":0.035,
+        "max_cost": 100,
+        "gradient": -1,
+        "coeff": 1,
+        "week_no": 27
+    },
+    "TotalCost": {
+        "type": "aggregated",
+        "agg_func": "mean",
+        "recorder_agg_func": "sum",
+        "recorders": ["ReservoirCost", "PurchasesCost", "PremiumAprilCost", "PremiumOctoberCost", "AprilContractCost", "OctoberContractCost"],
+        "is_objective": "minimize"
+    },
+      "deficit PT1": {
+          "type": "totaldeficitnode",
+          "node": "PT1",
+          "is_objective": "min",
+          "comment": "Total deficit recorded on PT1"
+      },
+      "Caudal en salida promedio": {
+          "type": "MeanFlowNodeRecorder",
+          "node": "Salida Maipo",
+          "is_objective": "max",
+          "comment": "Mean flow at system output"
+      },
+      "Maximum Deficit": {
+          "type": "MaximumDeficitNodeRecorder",
+          "node": "PT1",
+          "is_objective": "min"
+      },
+      "Total Contracts Made": {
+          "type": "NumpyArrayParameterRecorder",
+          "parameter": "contract_value",
+          "temporal_agg_func": "sum",
+          "agg_func": "mean",
+          "is_objective": "min"
+      },
+      "InstanstaneousDeficit": {
+          "type": "InstantaneousDeficictNodeRecorder",
+          "node": "PT1"
+      }
+    }
+}
