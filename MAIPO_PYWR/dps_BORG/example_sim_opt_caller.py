@@ -7,3 +7,5 @@ import example_sim_opt  # Import main optimization module that uses borg python 
 
 # Module within example
 example_sim_opt.Optimization()
+
+# ALMOST WORKING! NEED borg.dll, NOT libborg.so FOR WINDOWS

@@ -15,6 +15,9 @@ import tables
 import pandas
 import numpy as np
 import matplotlib.pyplot as plt
+import plotly.express as px
+from plotly.subplots import make_subplots
+import plotly.graph_objects as go
 import os
 import json
 import warnings
@@ -579,6 +582,120 @@ class IndicatorControlCurveIndexParameter(IndexParameter):
 
 IndicatorControlCurveIndexParameter.register()
 
+class DroughtStatusAggregationParameter(Parameter):
+    # Aggregates values of a dataframe (typically an indicator) over a time period to get a single value, used to determine
+    # whether to apply a policy such as buying contracts
+    # num_weeks is the number of weeks in the past we look (1 is most recent week only)
+
+    # DESCRIPTION FROM DATAFRAMEPARAMETER, TO MODIFY:
+    """Timeseries parameter with automatic alignment and resampling
+
+    Parameters
+    ----------
+    model : pywr.model.Model
+    dataframe : pandas.DataFrame or pandas.Series
+    scenario: pywr._core.Scenario (optional)
+    timestep_offset : int (default=0)
+        Optional offset to apply to the timestep look-up. This can be used to look forward (positive value) or
+        backward (negative value) in the dataset. The offset is applied to dataset after alignment and resampling.
+        If the offset takes the indexing out of the data bounds then the parameter will return the first or last
+        value available.
+    """
+
+    def __init__(self, model, dataframe, agg_func, num_weeks=1, scenario=None, timestep_offset=0, **kwargs):
+        super(DroughtStatusAggregationParameter, self).__init__(model, *kwargs)
+        self.dataframe = dataframe
+        self.agg_func = agg_func
+        self.num_weeks = num_weeks
+        self.scenario = scenario
+        self.timestep_offset = timestep_offset
+
+    def setup(self):
+        # i
+        super(DroughtStatusAggregationParameter, self).setup()
+        # align and resample the dataframe (function from pywr.dataframe_tools.py -- lines up indices with timestepper)
+        dataframe_resampled = align_and_resample_dataframe(self.dataframe, self.model.timestepper.datetime_index)
+        if dataframe_resampled.ndim == 1:
+            dataframe_resampled = pandas.DataFrame(dataframe_resampled)
+        # dataframe should now have the correct number of timesteps for the model
+        if len(dataframe_resampled) != len(self.model.timestepper):
+            raise ValueError("Aligning DataFrame failed with a different length compared with model timesteps.")
+        # check that if a 2D DataFrame is given that we also have a scenario assigned with it
+        if dataframe_resampled.ndim == 2 and dataframe_resampled.shape[1] > 1:
+            if self.scenario is None:
+                raise ValueError("Scenario must be given for a DataFrame input with multiple columns.")
+            if self.scenario.size != dataframe_resampled.shape[1]:
+                raise ValueError("Scenario size ({}) is different to the number of columns ({}) "
+                                 "in the DataFrame input.".format(self.scenario.size, dataframe_resampled.shape[1]))
+
+        if self.scenario is not None:
+            self._scenario_index = self.model.scenarios.get_scenario_index(self.scenario)
+            # if possible, only load the data required
+            scenario_indices = None
+            # Default to index that is just out of bounds to cause IndexError if something goes wrong
+            self._scenario_ids = np.ones(self.scenario.size, dtype=np.int32) * self.scenario.size
+
+            # Calculate the scenario indices to load dependning on how scenario combinations are defined.
+            if self.model.scenarios.user_combinations:
+                scenario_indices = set()
+                for user_combination in self.model.scenarios.user_combinations:
+                    scenario_indices.add(user_combination[self._scenario_index])
+                scenario_indices = sorted(list(scenario_indices))
+            elif self.scenario.slice:
+                scenario_indices = range(*self.scenario.slice.indices(self.scenario.slice.stop))
+            else:
+                # scenario is defined, but all data required
+                self._scenario_ids = None
+            if scenario_indices is not None:
+                # Now load only the required data
+                for n, i in enumerate(scenario_indices):
+                    self._scenario_ids[i] = n
+                dataframe_resampled = dataframe_resampled.iloc[:, scenario_indices]
+
+        self._values = dataframe_resampled.values.astype(np.float64)
+
+
+    # def minus1onexception(func):
+    #     def Inner_Function(*args, **kwargs):
+    #         try:
+    #             func(*args, **kwargs)
+    #         except Exception:
+    #             return -1
+    #
+    #     return Inner_Function
+    #
+    # @minus1onexception
+    def value(self, timestep, scenario_index):
+        # value
+        first_week = min(max(timestep.index + self.timestep_offset - (self.num_weeks - 1), 0), self._values.shape[0] - 1)
+        last_week = min(max(timestep.index + self.timestep_offset, 0), self._values.shape[0] - 1)
+        # j
+
+        if self.scenario is not None:
+            j = scenario_index.indices[self._scenario_index]
+            if self._scenario_ids is not None:
+                j = self._scenario_ids[j]
+            values = self._values[first_week:last_week + 1, j]
+        else:
+            values = self._values[first_week:last_week + 1, 0]
+
+        value = self.agg_func(values)
+        return value
+
+
+    @classmethod
+    def load(cls, model, data):
+        scenario = data.pop('scenario', None)
+        if scenario is not None:
+            scenario = model.scenarios[scenario]
+        timestep_offset = data.pop('timestep_offset', 0)
+        # This will consume all keyword arguments silently in pandas. I.e. don't rely on **data passing keywords
+        df = load_dataframe(model, data)
+        return cls(model, df, scenario=scenario, timestep_offset=timestep_offset, **data)
+
+
+DroughtStatusAggregationParameter.register()
+
 
 class ReservoirCostRecorder (Recorder):
     """
@@ -934,15 +1051,6 @@ class ShortageCostRecorder(Recorder):
 ShortageCostRecorder.register()
 
 
-# # Temporarily adding recorder to check that no flow is present in Salido_Maipo when there isn't
-# # enough for PT1 and PT2
-# class LeftoverRecorder(Recorder):
-#     def __init__(self, model, PT1, PT2, **kwargs):
-#         self.children =
-#
-#     def value(self, timestep, scenario_index):
-#         if
-
 class PolicyTrigger(Parameter):
     """
         English:
@@ -1016,7 +1124,6 @@ class PolicyTrigger(Parameter):
     @classmethod
     def load(cls, model, data):
         thresholds = {int(k): load_parameter(model, v) for k, v in data.pop('thresholds').items()}
-        thresholds = {int(k): load_parameter(model, v) for k, v in data.pop('thresholds').items()}
         contracts = {int(k): load_parameter(model, v) for k, v in data.pop('contracts').items()}
         drought_status = load_parameter(model, 'drought_index')
         return cls(model, drought_status, thresholds, contracts)
@@ -1079,6 +1186,8 @@ class PolicyTreeTriggerHardCoded(Parameter):
         year_no = timestep.index // 52
         year = self.model.timestepper.start.year + year_no
 
+        # week_no = str(week_no)
+
         try:
             threshold_parameter = self.thresholds[week_no]
         except KeyError:
@@ -1093,14 +1202,15 @@ class PolicyTreeTriggerHardCoded(Parameter):
                 current_drought = self.drought_status.value(timestep, scenario_index)
                 threshold = threshold_parameter.value(timestep, scenario_index)
 
-                # if current_drought < threshold:
-                #     contract_parameter = self.contracts[week_no]
-                #     contract_size = contract_parameter.get_value(scenario_index)
-                #     self._outcome[gid] = contract_size
+                if current_drought < threshold:
+                    contract_parameter = self.contracts[week_no]
+                    contract_size = contract_parameter.get_value(scenario_index)
+                    self._outcome[gid] = contract_size
+                    # print(contract_size)
                 # else:
                 #     self._outcome[gid] = 0
 
-                self._outcome[gid] = 0
+                # self._outcome[gid] = 0
 
                 # if current_drought <= -1.5:
                 #     self._outcome[gid] = 0
@@ -1152,241 +1262,833 @@ class PolicyTreeTriggerHardCoded(Parameter):
 PolicyTreeTriggerHardCoded.register()
 
 
-#%% run/simulate the Pywr model specified via the JSON document
-#
-# warnings.filterwarnings('ignore', category=tables.NaturalNameWarning)
-#
-# OUTPUT_DIR = "../outputs/DPS_results/SRI3/Policy0/2040_2050"
-#
-# os.makedirs(OUTPUT_DIR, exist_ok=True)
-# os.makedirs(OUTPUT_DIR, exist_ok=True)
-#
-# m = Model.load("sc_MAIPO_DPS_sim.json")
-# m.run()
-#
-# # comment out if you do not want to save results as file
-# #TablesRecorder(m, OUTPUT_DIR + "/flows.h5", filter_kwds={"complib": "zlib", "complevel": 5 }, parameters= ["contract_value", "DP_index", "purchases_value", "Maipo_max_volume"])
-#
-# weights = [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
-# CustomizedAggregation(m, weights)
-#
-# # print some sample simulated results
-# print('\nTotalCost:')
-# print(m.recorders['TotalCost'].aggregated_value())
-# print(np.array([m.recorders['TotalCost'].values()[i] for i in range(15)]))
-# print('\nfailure_frequency_PT1:')
-# print(m.recorders['failure_frequency_PT1'].aggregated_value())
-# print(np.array([m.recorders['failure_frequency_PT1'].values()[i] for i in range(15)]))
-# print('\nMaximum Deficit:')
-# print(m.recorders['Maximum Deficit'].values())
-# print('\nRollingMeanFlowElManzano:')
-# print(m.recorders['RollingMeanFlowElManzano'].data.shape)  # WHY 1560X15?
-# print(m.recorders['RollingMeanFlowElManzano'].data)
+# Output node that can take in restriction
+class RestrictedOutput(Output):
+    def __init__(self, model, desired_flow, restriction_factor=1, *args, **kwargs):
+        self.desired_flow = desired_flow
+        self.restriction_factor = restriction_factor
+        max_flow = AggregatedParameter(
+            model,
+            parameters=[
+                desired_flow,
+                restriction_factor
+            ],
+            agg_func="product"
+        )
+        kwargs["model"] = model
+        super(RestrictedOutput, self).__init__(max_flow=max_flow, *args, **kwargs)
 
-#%% run/simulate the same Pywr model, now specified via the Python API (function make_model()
-num_k = 1  # number of levels in policy tree
-num_DP = 7  # number of decision periods
 
-thresh = np.ones(num_DP) * -0.84
-acts = np.ones(num_DP) * 30
-
-m_ = make_model(threshold_vals=thresh, action_vals=acts)  # function in example_sim_opt.py
-m_.check()
-m_.check_graph()
-m_.find_orphaned_parameters()
-
-# # check for isomorphism of graphs in m and m_
-# import networkx as nx
-# import networkx.algorithms.isomorphism as iso
-# em = iso.categorical_edge_match('weight', 'weight')
-# nx.draw(m_.component_graph)
-# plt.show()  # commented out so that we don't have to x it out to continue running
-# pywr_model_to_d3_json(m_)
-
-m_.run()
-
-# # print some sample simulated results
-# print('\nTotalCost:')
-# print(m_.recorders['TotalCost'].aggregated_value())
-# print(np.array([m_.recorders['TotalCost'].values()[i] for i in range(15)]))
-# print('\nfailure_frequency_PT1:')
-# print(m_.recorders['failure_frequency_PT1'].aggregated_value())
-# print(np.array([m_.recorders['failure_frequency_PT1'].values()[i] for i in range(15)]))
-# print('\nMaximum Deficit PT1:')
-# print(m_.recorders['Maximum Deficit PT1'].values())
-# print('\nRollingMeanFlowElManzano:')
-# print(m_.recorders['RollingMeanFlowElManzano'].data)
-
-#%% Check that both models yield same results
-
-# print('\nTotalCost:')
-# print(m_.recorders['TotalCost'].aggregated_value())
-# print(m.recorders['TotalCost'].aggregated_value())
-# print(np.alltrue(np.array([m_.recorders['TotalCost'].values()[i] for i in range(15)]) == np.array([m.recorders['TotalCost'].values()[i] for i in range(15)])))
-#
-# print('\nfailure_frequency_PT1:')
-# print(m_.recorders['failure_frequency_PT1'].aggregated_value() == m.recorders['failure_frequency_PT1'].aggregated_value())
-# print(np.alltrue(np.array([m_.recorders['failure_frequency_PT1'].values()[i] for i in range(15)]) == np.array([m.recorders['failure_frequency_PT1'].values()[i] for i in range(15)])))
-#
-# print('\nMaximum Deficit:')
-# print(np.alltrue(m_.recorders['Maximum Deficit'].values() == m.recorders['Maximum Deficit'].values()))
-#
-# print('\nRollingMeanFlowElManzano:')
-# print(np.alltrue(m_.recorders['RollingMeanFlowElManzano'].data == m.recorders['RollingMeanFlowElManzano'].data))
 
 
 #%% Make graphs of results
-
-def plotProperty(values, label, node=None):
-    # ADD RANGES FOR EACH PROPERTY
-    # COST RANGE: 0-3E9
-    # FAILURE FREQUENCY RANGE: 0-0.08
-    # DEFICIT RANGE: 0-7
-
-    # fig, ax = plt.subplots()
-    plt.figure()
-    plt.bar(list(map(lambda x: str(x), range(1, 16))), values, label=label)
-    # if label == "Cost":
-    #     plt.ylim(0, 3e9)
-    # if label == "Failure Frequency":
-    #     plt.ylim(0, 0.4)
-    # if label == "Maximum Deficit":
-    #     plt.ylim(0, 8)
-    plt.xlabel('Scenario')
-    plt.ylabel(label)
-    if node is None:
-        plt.title(label)
-    else:
-        plt.title(label + " (" + node + ")")
-    plt.axhline(y=np.mean(values), color='red', linestyle='--', label="Avg " + str(label))
-    plt.legend()
-    plt.show()
-
-
-# Plot costs
-totalCosts = m_.recorders['TotalCost'].values()
-plotProperty(totalCosts, label="Cost")
-
-failureFrequencyPT1 = m_.recorders['failure_frequency_PT1'].values()
-plotProperty(failureFrequencyPT1, label="Failure Frequency", node="PT1")
-
-failureFrequencyAg = m_.recorders['failure_frequency_Ag'].values()
-plotProperty(failureFrequencyAg, label="Failure Frequency", node="Ag")
-
-maximumDeficitPT1 = m_.recorders['Maximum Deficit PT1'].values()
-plotProperty(maximumDeficitPT1, label="Maximum Deficit", node="PT1")
-
-maximumDeficitAg = m_.recorders['Maximum Deficit Ag'].values()
-plotProperty(maximumDeficitAg, label="Maximum Deficit", node="Ag")
-
-
-#%% save results
-
-# data = {}
-# values = {}
-# for r in m.recorders:
 #
-#     rdata = {
-#         'class': r.__class__.__name__,
+# def plotProperty(values, label, node=None):
+#     # ADD RANGES FOR EACH PROPERTY
+#     # COST RANGE: 0-3E9
+#     # FAILURE FREQUENCY RANGE: 0-0.08
+#     # DEFICIT RANGE: 0-7
+#
+#     # fig, ax = plt.subplots()
+#     plt.figure()
+#     plt.bar(list(map(lambda x: str(x), range(1, 16))), values, label=label)
+#     # if label == "Cost":
+#     #     plt.ylim(0, 3e9)
+#     if label == "Failure Frequency":
+#         plt.ylim(0, 0.3)
+#     if label == "Maximum Deficit":
+#         plt.ylim(0, 8)
+#     plt.xlabel('Scenario')
+#     plt.ylabel(label)
+#     if node is None:
+#         plt.title(label)
+#     else:
+#         plt.title(label + " (" + node + ")")
+#     plt.axhline(y=np.mean(values), color='red', linestyle='--', label="Avg " + str(label))
+#     plt.legend()
+#     plt.show()
+#
+# num_k = 1  # number of levels in policy tree
+# num_DP = 7  # number of decision periods
+#
+# contract_thresh = np.ones(num_DP)
+# contract_acts = np.ones(num_DP) * 30
+# demand_thresh = [
+#     -np.ones(12),
+#     -2*np.ones(12)
+# ]
+# demand_acts = [
+#     np.ones(12),
+#     [0.85, 0.85, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.85, 0.85],
+#     [0.75, 0.75, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.75, 0.75]
+# ]
+#
+# m_ = make_model(contract_threshold_vals=contract_thresh, contract_action_vals=contract_acts,
+#                 demand_threshold_vals=demand_thresh, demand_action_vals=demand_acts)  # function in example_sim_opt.py
+# m_.check()
+# m_.check_graph()
+# m_.find_orphaned_parameters()
+#
+# m_.run()
+#
+# # Plot costs
+# totalCosts = m_.recorders['TotalCost'].values()
+# plotProperty(totalCosts, label="Cost")
+#
+# failureFrequencyPT1 = m_.recorders['failure_frequency_PT1'].values()
+# plotProperty(failureFrequencyPT1, label="Failure Frequency", node="PT1")
+#
+# failureFrequencyAg = m_.recorders['failure_frequency_Ag'].values()
+# plotProperty(failureFrequencyAg, label="Failure Frequency", node="Ag")
+#
+# maximumDeficitPT1 = m_.recorders['Maximum Deficit PT1'].values()
+# plotProperty(maximumDeficitPT1, label="Maximum Deficit", node="PT1")
+#
+# maximumDeficitAg = m_.recorders['Maximum Deficit Ag'].values()
+# plotProperty(maximumDeficitAg, label="Maximum Deficit", node="Ag")
+
+
+#%% Test demand thresholds and actions
+
+num_k = 1  # number of levels in policy tree
+num_DP = 7  # number of decision periods
+
+# LINE CHART OF THRESHOLDS FOR EACH SCENARIO
+
+# num_thresh = 10
+# thresh_space = 0.84
+# acts_space = 30
+# ff_PT1 = np.zeros((num_thresh, 15))
+# ff_Ag = np.zeros((num_thresh, 15))
+# deficit_PT1 = np.zeros((num_thresh, 15))
+# deficit_Ag = np.zeros((num_thresh, 15))
+# cost = np.zeros((num_thresh, 15))
+# for i in range(num_thresh):
+#     thresh = -np.ones(num_DP) * thresh_space * i
+#     acts = np.ones(num_DP) * acts_space# * (i + 1)
+#
+#     m_ = make_model(contract_threshold_vals=thresh, contract_action_vals=acts)  # function in example_sim_opt.py
+#     m_.check()
+#     m_.check_graph()
+#     m_.find_orphaned_parameters()
+#
+#     m_.run()
+#
+#     ff_PT1[i, :] = m_.recorders['failure_frequency_PT1'].values()
+#     ff_Ag[i, :] = m_.recorders['failure_frequency_Ag'].values()
+#     deficit_PT1[i, :] = m_.recorders['Maximum Deficit PT1'].values()
+#     deficit_Ag[i, :] = m_.recorders['Maximum Deficit Ag'].values()
+#     cost[i, :] = m_.recorders['TotalCost'].values()
+#
+# ff_fig, ff_ax = plt.subplots(3, 5, figsize=(15, 12))
+# deficit_fig, deficit_ax = plt.subplots(3, 5, figsize=(15, 12))
+# cost_fig, cost_ax = plt.subplots(3, 5, figsize=(15, 12))
+# x_vals = acts_space*np.arange(1, num_thresh + 1)
+#
+# max_ff = np.maximum(np.max(np.max(ff_PT1)), np.max(np.max(ff_Ag)))
+# max_deficit = np.maximum(np.max(np.max(deficit_PT1)), np.max(np.max(deficit_Ag)))
+# max_cost = np.max(np.max(cost))
+# metric_properties = {
+#     "ff_PT1": {
+#         "ax": ff_ax,
+#         "data": ff_PT1,
+#         "max_val": max_ff,
+#         "label": "PT1 Failure Frequency",
+#         "color": "Purple",
+#     },
+#
+#     "ff_Ag": {
+#         "ax": ff_ax,
+#         "data": ff_Ag,
+#         "max_val": max_ff,
+#         "label": "Agriculture Failure Frequency",
+#         "color": "Green"
+#     },
+#
+#     "deficit_PT1": {
+#         "ax": deficit_ax,
+#         "data": deficit_PT1,
+#         "max_val": max_deficit,
+#         "label": "PT1 Deficit",
+#         "color": "Purple"
+#     },
+#
+#     "deficit_Ag": {
+#         "ax": deficit_ax,
+#         "data": deficit_Ag,
+#         "max_val": max_deficit,
+#         "label": "Agriculture Deficit",
+#         "color": "Green"
+#     },
+#
+#     "cost": {
+#         "ax": cost_ax,
+#         "data": cost,
+#         "max_val": max_cost,
+#         "label": "Cost",
+#         "color": "Orange"
 #     }
+# }
 #
-#     try:
-#         rdata['value'] = r.aggregated_value()
-#     except NotImplementedError:
-#         pass
-#
-#     try:
-#         rdata['node'] = r.node.name
-#     except AttributeError:
-#         pass
-#
-#     try:
-#         values[r.name] = list(r.values())
-#     except NotImplementedError:
-#         pass
-#
-#     if len(rdata) > 1:
-#         data[r.name] = rdata
-#
-# writer = pandas.ExcelWriter(OUTPUT_DIR + '/metrics.xlsx', engine='xlsxwriter')
-# metrics = pandas.DataFrame(data).T
-# metrics.to_csv(OUTPUT_DIR + '/metrics.csv')
-# metrics.to_excel(writer, 'aggregated')
-# scenario_values = pandas.DataFrame(values).T
-# scenario_values.to_excel(writer, 'scenarios')
-#
-# # comment out if you do not want to save results as file
-# # writer.save() - note: save has been depreciated. Use close() instead.
-#
-# writer.close()
+# def create_line_plot(ax, data, max_val, label, color):
+#     ax.plot(x_vals, data, marker='o', label=label, color=color)
+#     ax.set_ylim(0, 1.2*max_val)
+#     ax.set_xticks(x_vals)
+#     ax.set_xticklabels(x_vals, rotation=45)
 #
 #
-# #%% Load the simulation data
+# num_ticks = num_thresh
+# for i in range(15):
+#     for metric, properties in metric_properties.items():
+#         create_line_plot(
+#             properties["ax"][i // 5, i % 5],
+#             properties["data"][:, i],
+#             properties["max_val"],
+#             properties["label"],
+#             properties["color"]
+#         )
 #
-# with tables.open_file(os.path.join(OUTPUT_DIR, 'flows.h5')) as h5:
-#     tbl = h5.get_node('/time')
-#     date_index = pandas.to_datetime({k: tbl.col(k) for k in ('year', 'month', 'day')})
+# def format_plot(fig, label):
+#     lines_labels = [cur_ax.get_legend_handles_labels() for cur_ax in fig.axes[:1]]
+#     lines, labels = [sum(lol, []) for lol in zip(*lines_labels)]
+#     fig.legend(lines, labels)
+#     fig.suptitle(label, fontsize=34)
+#     fig.tight_layout()
+#     fig.show()
 #
-#     data = {}
-#     for ca in h5.walk_nodes('/', 'CArray'):
-#         data[ca._v_name] = pandas.DataFrame(ca.read(), index=date_index, columns=m.scenarios.multiindex)
-#
-# df = pandas.concat(data, axis=1)
-# nrows = len(df.columns.levels[0])
-#
-# # df.plot(subplots=True, )
-# FLOW_UNITS = 'Mm^3/day'
+# format_plot(ff_fig, "Failure Frequency")
+# format_plot(deficit_fig, "Maximum Deficit")
+# format_plot(cost_fig, "Total Cost")
 
-#%%
-# extra_data = pd.read_csv("C:\\Users\\danny\\Pywr projects\\MAIPO_PYWR\\data\\Extra data.csv")
-# # print((data["PT1"].mean() + data["PT2"].mean())*52)
-# print("Wait for it...")
-# demand_flow = extra_data["PT1"].to_list()
-# PT1_flow = m_.recorders["PT1 flow"].data[:, 10]
-# Ag_flow = m_.recorders["Agriculture flow"].data[:, 10]
-# for i in range(len(extra_data)):
-#     # print(demand_flow[i], true_flow[i])
-#     if demand_flow[i] > PT1_flow[i]:
-#         print(i, demand_flow[i] - PT1_flow[i], Ag_flow[i])
 
-# embalse_storage = m_.recorders["Embalse storage"].data[:, 0]
-# plt.plot(embalse_storage)
-# plt.xlabel('time')
-# plt.ylabel('storage')
-# plt.ylim(0, 225)
-# plt.axhline(y=np.mean(embalse_storage), color='red', linestyle='--', label="Avg storage")
-# plt.title('Embalse storage')
-# plt.legend()
+# LINE CHART OF ACTIONS FOR EACH SCENARIO
+
+# num_acts = 10
+# thresh_space = 0.5
+# acts_space = 0.05
+# ff_PT1 = np.zeros((num_acts, 15))
+# ff_Ag = np.zeros((num_acts, 15))
+# deficit_PT1 = np.zeros((num_acts, 15))
+# deficit_Ag = np.zeros((num_acts, 15))
+# cost = np.zeros((num_acts, 15))
+# for i in range(num_acts):
+#     # thresh = [-np.ones(12) * thresh_space * i]
+#     thresh = [-np.ones(12)]
+#     acts = [np.ones(12), np.ones(12) * (1 - (num_acts - 1 - i)*acts_space)]
+#
+#     m_ = make_model(demand_threshold_vals=thresh, demand_action_vals=acts)  # function in example_sim_opt.py
+#     m_.check()
+#     m_.check_graph()
+#     m_.find_orphaned_parameters()
+#
+#     m_.run()
+#
+#     ff_PT1[i, :] = m_.recorders['failure_frequency_PT1'].values()
+#     ff_Ag[i, :] = m_.recorders['failure_frequency_Ag'].values()
+#     deficit_PT1[i, :] = m_.recorders['Maximum Deficit PT1'].values()
+#     deficit_Ag[i, :] = m_.recorders['Maximum Deficit Ag'].values()
+#     cost[i, :] = m_.recorders['TotalCost'].values()
+#
+# ff_fig, ff_ax = plt.subplots(3, 5, figsize=(15, 12))
+# deficit_fig, deficit_ax = plt.subplots(3, 5, figsize=(15, 12))
+# cost_fig, cost_ax = plt.subplots(3, 5, figsize=(15, 12))
+# x_vals = np.linspace(1 - (num_acts - 1) * acts_space,1, num_acts, endpoint=True)
+#
+# max_ff = np.maximum(np.max(np.max(ff_PT1)), np.max(np.max(ff_Ag)))
+# max_deficit = np.maximum(np.max(np.max(deficit_PT1)), np.max(np.max(deficit_Ag)))
+# max_cost = np.max(np.max(cost))
+# metric_properties = {
+#     "ff_PT1": {
+#         "ax": ff_ax,
+#         "data": ff_PT1,
+#         "max_val": max_ff,
+#         "label": "PT1 Failure Frequency",
+#         "color": "Purple",
+#     },
+#
+#     "ff_Ag": {
+#         "ax": ff_ax,
+#         "data": ff_Ag,
+#         "max_val": max_ff,
+#         "label": "Agriculture Failure Frequency",
+#         "color": "Green"
+#     },
+#
+#     "deficit_PT1": {
+#         "ax": deficit_ax,
+#         "data": deficit_PT1,
+#         "max_val": max_deficit,
+#         "label": "PT1 Deficit",
+#         "color": "Purple"
+#     },
+#
+#     "deficit_Ag": {
+#         "ax": deficit_ax,
+#         "data": deficit_Ag,
+#         "max_val": max_deficit,
+#         "label": "Agriculture Deficit",
+#         "color": "Green"
+#     },
+#
+#     "cost": {
+#         "ax": cost_ax,
+#         "data": cost,
+#         "max_val": max_cost,
+#         "label": "Cost",
+#         "color": "Orange"
+#     }
+# }
+#
+# def create_line_plot(ax, data, max_val, label, color):
+#     ax.plot(x_vals, data, marker='o', label=label, color=color)
+#     ax.set_ylim(0, (1.2*max_val).round(decimals=2))
+#     ax.set_xticks(x_vals)
+#     ax.set_xticklabels(x_vals.round(decimals=2), rotation=45)
+#
+#
+# num_ticks = num_acts
+# for i in range(15):
+#     for metric, properties in metric_properties.items():
+#         create_line_plot(
+#             properties["ax"][i // 5, i % 5],
+#             properties["data"][:, i],
+#             properties["max_val"],
+#             properties["label"],
+#             properties["color"]
+#         )
+#
+# def format_plot(fig, label):
+#     lines_labels = [cur_ax.get_legend_handles_labels() for cur_ax in fig.axes[:1]]
+#     lines, labels = [sum(lol, []) for lol in zip(*lines_labels)]
+#     fig.legend(lines, labels)
+#     fig.suptitle(label, fontsize=34)
+#     fig.tight_layout()
+#     fig.show()
+#
+# format_plot(ff_fig, "Failure Frequency")
+# format_plot(deficit_fig, "Maximum Deficit")
+# format_plot(cost_fig, "Total Cost")
+
+
+
+# num_acts = 10
+#
+# ff_PT1 = np.zeros((num_acts, 15))
+# ff_Ag = np.zeros((num_acts, 15))
+# for i in range(num_acts):
+#     thresh = np.ones(num_DP) * -0.84
+#     acts = np.ones(num_DP) * 30 * i
+#
+#     m_ = make_model(threshold_vals=thresh, action_vals=acts)  # function in example_sim_opt.py
+#     m_.check()
+#     m_.check_graph()
+#     m_.find_orphaned_parameters()
+#
+#     m_.run()
+#
+#     ff_PT1[i, :] = m_.recorders['failure_frequency_PT1'].values()
+#     ff_Ag[i, :] = m_.recorders['failure_frequency_Ag'].values()
+#
+# fig, ax = plt.subplots(3, 5, figsize=(15, 12))
+# x_vals = 30*np.arange(num_acts)
+# for i in range(15):
+#     cur_plot = ax[i // 5, i % 5]
+#     cur_plot.plot(x_vals, ff_PT1[:, i], marker='o', label="PT1")
+#     cur_plot.plot(x_vals, ff_Ag[:, i], marker='o', label="Ag")
+#     cur_plot.set_ylim(0, 0.3)
+#
+#     num_ticks = num_acts
+#     cur_plot.set_xticks(30 * np.arange(num_acts))
+#     cur_plot.set_xticklabels(30 * np.arange(num_acts), rotation=45)
+#
+# lines_labels = [cur_ax.get_legend_handles_labels() for cur_ax in fig.axes[:1]]
+# lines, labels = [sum(lol, []) for lol in zip(*lines_labels)]
+# fig.legend(lines, labels)
+#
+# fig.tight_layout()
+# fig.show()
+
+
+# HEAT MAPS OF METRICS IN EACH SCENARIO
+
+# num_thresh = 5
+# num_acts = 5
+# ff_PT1 = np.zeros((num_thresh, num_acts, 15))
+# ff_Ag = np.zeros((num_thresh, num_acts, 15))
+# deficit_PT1 = np.zeros((num_thresh, num_acts, 15))
+# deficit_Ag = np.zeros((num_thresh, num_acts, 15))
+# # Note: Cost might not be affected because contracts and things are already bought?
+# cost = np.zeros((num_thresh, num_acts, 15))
+# for i in range(num_thresh):
+#     for j in range(num_acts):
+#         thresh = -0.84*np.ones(num_DP)*i #[-0.5*np.ones(12)*i]
+#         acts = 30*np.ones(num_DP)*(j + 1)#[np.ones(12), (1 - 0.1*j)*np.ones(12)]
+#
+#         m_ = make_model(contract_threshold_vals=thresh, contract_action_vals=acts)  # function in example_sim_opt.py
+#         m_.check()
+#         m_.check_graph()
+#         m_.find_orphaned_parameters()
+#
+#         m_.run()
+#
+#         ff_PT1[i, j, :] = m_.recorders['failure_frequency_PT1'].values()
+#         ff_Ag[i, j, :] = m_.recorders['failure_frequency_Ag'].values()
+#         deficit_PT1[i, j, :] = m_.recorders['Maximum Deficit PT1'].values()
+#         deficit_Ag[i, j, :] = m_.recorders['Maximum Deficit Ag'].values()
+#         cost[i, j, :] = m_.recorders['TotalCost'].values()
+#
+# fig_ff_PT1, ax_ff_PT1 = plt.subplots(3, 5, figsize=(15, 12))
+# fig_ff_Ag, ax_ff_Ag = plt.subplots(3, 5, figsize=(15, 12))
+# fig_deficit_PT1, ax_deficit_PT1 = plt.subplots(3, 5, figsize=(15, 12))
+# fig_deficit_Ag, ax_deficit_Ag = plt.subplots(3, 5, figsize=(15, 12))
+# fig_cost, ax_cost = plt.subplots(3, 5, figsize=(15, 12))
+# max_ff_PT1 = np.max(np.max(np.max(ff_PT1)))
+# max_ff_Ag = np.max(np.max(np.max(ff_Ag)))
+# max_deficit_PT1 = np.max(np.max(np.max(deficit_PT1)))
+# max_deficit_Ag = np.max(np.max(np.max(deficit_Ag)))
+# max_cost = np.max(np.max(np.max(cost)))
+#
+# x = np.arange(num_thresh)
+# y = np.arange(num_acts)
+# X, Y = np.meshgrid(x, y)
+#
+# def create_heat_map(fig, ax, data, max_val, color):
+#     img = ax.imshow(data, cmap=color, vmin=0, vmax=max_val,
+#                                         extent=[x.min() - 0.5, x.max() + 0.5, y.min() - 0.5, y.max() + 0.5],
+#                                         interpolation='nearest', origin='lower')
+#     ax.set_xticks(np.arange(num_acts))
+#     ax.set_xticklabels(30 * np.arange(1, num_acts + 1))#1 - 0.1 * np.arange(num_acts), rotation=45)
+#     ax.set_yticks(np.arange(num_thresh))
+#     ax.set_yticklabels(-0.84 * np.arange(num_thresh))#-0.5 * np.arange(num_thresh))
+#
+#     fig.colorbar(img, ax=ax)
+#
+# metric_properties = {
+#     "ff_PT1": {
+#         "fig": fig_ff_PT1,
+#         "ax": ax_ff_PT1,
+#         "data": ff_PT1,
+#         "color": "Purples",
+#         "max_val": max_ff_PT1
+#     },
+#
+#     "ff_Ag": {
+#         "fig": fig_ff_Ag,
+#         "ax": ax_ff_Ag,
+#         "data": ff_Ag,
+#         "color": "Greens",
+#         "max_val": max_ff_Ag
+#     },
+#
+#     "deficit_PT1": {
+#         "fig": fig_deficit_PT1,
+#         "ax": ax_deficit_PT1,
+#         "data": deficit_PT1,
+#         "color": "Purples",
+#         "max_val": max_deficit_PT1
+#     },
+#
+#     "deficit_Ag": {
+#         "fig": fig_deficit_Ag,
+#         "ax": ax_deficit_Ag,
+#         "data": deficit_Ag,
+#         "color": "Greens",
+#         "max_val": max_deficit_Ag
+#     },
+#
+#     "cost": {
+#         "fig": fig_cost,
+#         "ax": ax_cost,
+#         "data": cost,
+#         "color": "Oranges",
+#         "max_val": max_cost
+#     }
+# }
+#
+# for i in range(15):
+#     for metric, properties in metric_properties.items():
+#         create_heat_map(
+#             properties["fig"],
+#             properties["ax"][i // 5, i % 5],
+#             properties["data"][:, :, i],
+#             properties["max_val"],
+#             properties["color"]
+#         )
+#
+#
+# fig_ff_PT1.suptitle("PT1 Failure Frequency", fontsize=34)
+# fig_ff_PT1.tight_layout()
+# fig_ff_PT1.show()
+# fig_ff_Ag.suptitle("Ag Failure Frequency", fontsize=34)
+# fig_ff_Ag.tight_layout()
+# fig_ff_Ag.show()
+# fig_deficit_PT1.suptitle("PT1 Max Deficit", fontsize=34)
+# fig_deficit_PT1.tight_layout()
+# fig_deficit_PT1.show()
+# fig_deficit_Ag.suptitle("Ag Max Deficit", fontsize=34)
+# fig_deficit_Ag.tight_layout()
+# fig_deficit_Ag.show()
+# fig_cost.suptitle("Total Cost", fontsize=34)
+# fig_cost.tight_layout()
+# fig_cost.show()
+
+
+# LINE CHART OF FAILURE FREQUENCY FOR DIFFERENT THRESHOLDS WITH LINE FOR EACH SCENARIO
+
+# num_thresh = 5
+# ff_PT1 = np.zeros((5, 15))
+# for i in range(num_thresh):
+#     thresh = np.ones(num_DP) * -0.84 * i
+#     acts = np.ones(num_DP) * 30
+#
+#     m_ = make_model(contract_threshold_vals=thresh, contract_action_vals=acts)  # function in example_sim_opt.py
+#     m_.check()
+#     m_.check_graph()
+#     m_.find_orphaned_parameters()
+#
+#     m_.run()
+#
+#     ff_PT1[i, :] = m_.recorders['failure_frequency_PT1'].values()
+#
+# fig, ax = plt.subplots(figsize=(12, 15))
+# for i in range(15):
+#     ax.plot(ff_PT1[:, i], marker='o', label="Scenario {}".format(i))
+#     ax.set_xticks(np.arange(num_thresh))
+#     ax.set_xticklabels(-0.84 * np.arange(num_thresh), rotation=45)
+#
+# ax.legend()
+# fig.suptitle("PT1 Failure Frequency", fontsize=34)
+# fig.show()
+
+#%% Test contract thresholds and actions
+
+num_k= 1  # number of levels in policy tree
+num_DP = 7  # number of decision periods
+
+# BARS OF SCENARIOS FOR EACH THRESHOLD
+
+# fig, ax = plt.subplots(5)
+#
+# for i in range(5):
+#     thresh = np.ones(num_DP) * -0.84 * i
+#     acts = np.ones(num_DP) * 30
+#
+#     m_ = make_model(threshold_vals=thresh, action_vals=acts)  # function in example_sim_opt.py
+#     m_.check()
+#     m_.check_graph()
+#     m_.find_orphaned_parameters()
+#
+#     m_.run()
+#
+#     ff_PT1 = m_.recorders['failure_frequency_PT1'].values()
+#     ax[i].bar(list(map(lambda x: str(x), range(1, 16))), ff_PT1)
+#     ax[i].set_ylim(0, 0.3)
+#     ax[i].axhline(y=np.mean(ff_PT1), color='red', linestyle='--', label="Avg failure frequency PT1")
+#
+# fig.tight_layout()
+# fig.show()
+
+
+# BARS OF THRESHOLDS FOR EACH SCENARIO
+
+# ff_PT1 = np.zeros((5, 15))
+# ff_Ag = np.zeros((5, 15))
+# for i in range(5):
+#     thresh = np.ones(num_DP) * -0.84 * i
+#     acts = np.ones(num_DP) * 30
+#
+#     m_ = make_model(threshold_vals=thresh, action_vals=acts)  # function in example_sim_opt.py
+#     m_.check()
+#     m_.check_graph()
+#     m_.find_orphaned_parameters()
+#
+#     m_.run()
+#
+#     ff_PT1[i, :] = m_.recorders['failure_frequency_PT1'].values()
+#     ff_Ag[i, :] = m_.recorders['failure_frequency_Ag'].values()
+#
+# fig, ax = plt.subplots(3, 5, figsize=(15, 12))
+# X_axis = np.arange(5)
+# for i in range(15):
+#     cur_plot = ax[i // 5, i % 5]
+#     cur_plot.bar(-width/2 + X_axis, ff_PT1[:, i], width=width, label="PT1")
+#     cur_plot.bar(width/2 + X_axis, ff_Ag[:, i], width=width, label="Ag")
+#     cur_plot.set_ylim(0, 0.3)
+#
+#     cur_plot.set_xticks(X_axis, list(map(lambda x: str(x), -0.84 * np.arange(5))))
+#     cur_plot.set_xticklabels(list(map(lambda x: str(x), -0.84 * np.arange(5))), rotation=45)
+#     cur_plot.legend()
+
+
+# LINE CHART OF THRESHOLDS FOR EACH SCENARIO
+
+# num_thresh = 10
+# ff_PT1 = np.zeros((num_thresh, 15))
+# ff_Ag = np.zeros((num_thresh, 15))
+# for i in range(num_thresh):
+#     thresh = np.ones(num_DP) * -0.84 * i
+#     acts = np.ones(num_DP) * 30
+#
+#     m_ = make_model(threshold_vals=thresh, action_vals=acts)  # function in example_sim_opt.py
+#     m_.check()
+#     m_.check_graph()
+#     m_.find_orphaned_parameters()
+#
+#     m_.run()
+#
+#     ff_PT1[i, :] = m_.recorders['failure_frequency_PT1'].values()
+#     ff_Ag[i, :] = m_.recorders['failure_frequency_Ag'].values()
+#
+# fig, ax = plt.subplots(3, 5, figsize=(15, 12))
+# # X_axis = np.arange(5)
+# x_vals = -0.84*np.arange(num_thresh)
+# for i in range(15):
+#     cur_plot = ax[i // 5, i % 5]
+#     cur_plot.plot(x_vals, ff_PT1[:, i], marker='o', label="PT1")
+#     cur_plot.plot(x_vals, ff_Ag[:, i], marker='o', label="Ag")
+#     cur_plot.set_ylim(0, 0.3)
+#
+#     num_ticks = num_thresh
+#     cur_plot.set_xticks(-0.84 * np.arange(num_ticks))
+#     cur_plot.set_xticklabels(-0.84 * np.arange(num_ticks), rotation=45)
+#     # cur_plot.legend()
+#
+# lines_labels = [cur_ax.get_legend_handles_labels() for cur_ax in fig.axes[:1]]
+# lines, labels = [sum(lol, []) for lol in zip(*lines_labels)]
+# fig.legend(lines, labels)#, loc="upper right")
+#
+# fig.tight_layout()
+# fig.show()
+
+
+# LINE CHART OF ACTIONS FOR EACH SCENARIO
+
+# num_acts = 10
+#
+# ff_PT1 = np.zeros((num_acts, 15))
+# ff_Ag = np.zeros((num_acts, 15))
+# for i in range(num_acts):
+#     thresh = np.ones(num_DP) * -0.84
+#     acts = np.ones(num_DP) * 30 * i
+#
+#     m_ = make_model(threshold_vals=thresh, action_vals=acts)  # function in example_sim_opt.py
+#     m_.check()
+#     m_.check_graph()
+#     m_.find_orphaned_parameters()
+#
+#     m_.run()
+#
+#     ff_PT1[i, :] = m_.recorders['failure_frequency_PT1'].values()
+#     ff_Ag[i, :] = m_.recorders['failure_frequency_Ag'].values()
+#
+# fig, ax = plt.subplots(3, 5, figsize=(15, 12))
+# x_vals = 30*np.arange(num_acts)
+# for i in range(15):
+#     cur_plot = ax[i // 5, i % 5]
+#     cur_plot.plot(x_vals, ff_PT1[:, i], marker='o', label="PT1")
+#     cur_plot.plot(x_vals, ff_Ag[:, i], marker='o', label="Ag")
+#     cur_plot.set_ylim(0, 0.3)
+#
+#     num_ticks = num_acts
+#     cur_plot.set_xticks(30 * np.arange(num_acts))
+#     cur_plot.set_xticklabels(30 * np.arange(num_acts), rotation=45)
+#
+# lines_labels = [cur_ax.get_legend_handles_labels() for cur_ax in fig.axes[:1]]
+# lines, labels = [sum(lol, []) for lol in zip(*lines_labels)]
+# fig.legend(lines, labels)
+#
+# fig.tight_layout()
+# fig.show()
+
+
+# HEAT MAPS FAILURE FREQUENCY IN EACH SCENARIO
+
+# num_thresh = 5
+# num_acts = 5
+# ff_PT1 = np.zeros((num_thresh, num_acts, 15))
+# ff_Ag = np.zeros((num_thresh, num_acts, 15))
+# for i in range(num_thresh):
+#     for j in range(num_acts):
+#         thresh = np.ones(num_DP) * -0.84 * (num_thresh - 1 - i)
+#         acts = np.ones(num_DP) * 30 * (j + 1)
+#
+#         m_ = make_model(threshold_vals=thresh, action_vals=acts)  # function in example_sim_opt.py
+#         m_.check()
+#         m_.check_graph()
+#         m_.find_orphaned_parameters()
+#
+#         m_.run()
+#
+#         ff_PT1[i, j, :] = m_.recorders['failure_frequency_PT1'].values()
+#         ff_Ag[i, j, :] = m_.recorders['failure_frequency_Ag'].values()
+#
+#
+# fig_PT1, ax_PT1 = plt.subplots(3, 5, figsize=(15, 12))
+# fig_Ag, ax_Ag = plt.subplots(3, 5, figsize=(15, 12))
+# x = np.arange(num_thresh)
+# y = np.arange(num_acts)
+# X, Y = np.meshgrid(x, y)
+# for i in range(15):
+#     cur_plot_PT1 = ax_PT1[i // num_thresh, i % num_thresh]
+#     cur_data_PT1 = ff_PT1[:, :, i]
+#
+#     img_PT1 = cur_plot_PT1.imshow(cur_data_PT1, cmap='Greens', vmin=0, vmax=0.3,
+#                    extent=[x.min() - 0.5, x.max() + 0.5, y.min() - 0.5, y.max() + 0.5],
+#                    interpolation='nearest', origin='lower')
+#     cur_plot_PT1.set_xticks(np.arange(num_acts))
+#     cur_plot_PT1.set_xticklabels(30 * np.arange(1, num_acts + 1))
+#     cur_plot_PT1.set_yticks(np.arange(num_thresh))
+#     cur_plot_PT1.set_yticklabels(-0.84 * np.arange(num_thresh - 1, -1, -1), rotation=45)
+#
+#     fig_PT1.colorbar(img_PT1, ax=cur_plot_PT1)
+#
+#
+#     cur_plot_Ag = ax_Ag[i // num_thresh, i % num_thresh]
+#     cur_data_Ag = ff_Ag[:, :, i]
+#
+#     img_Ag = cur_plot_Ag.imshow(cur_data_Ag, cmap='Greens', vmin=0, vmax=0.3,
+#                    extent=[x.min() - 0.5, x.max() + 0.5, y.min() - 0.5, y.max() + 0.5],
+#                    interpolation='nearest', origin='lower')
+#     cur_plot_Ag.set_xticks(np.arange(num_acts))
+#     cur_plot_Ag.set_xticklabels(30 * np.arange(num_acts))
+#     cur_plot_Ag.set_yticks(np.arange(num_thresh))
+#     cur_plot_Ag.set_yticklabels(-0.84 * np.arange(num_thresh - 1, -1, -1), rotation=45)
+#
+#     fig_Ag.colorbar(img_Ag, ax=cur_plot_Ag)
+#
+# fig_PT1.tight_layout()
+# fig_PT1.show()
+# fig_Ag.tight_layout()
+# fig_Ag.show()
+
+# LINE CHART OF FAILURE FREQUENCY FOR DIFFERENT THRESHOLDS WITH LINE FOR EACH SCENARIO
+
+# ff_PT1 = np.zeros((5, 15))
+# for i in range(5):
+#     thresh = np.ones(num_DP) * -0.84 * i
+#     acts = np.ones(num_DP) * 30
+#
+#     m_ = make_model(threshold_vals=thresh, action_vals=acts)  # function in example_sim_opt.py
+#     m_.check()
+#     m_.check_graph()
+#     m_.find_orphaned_parameters()
+#
+#     m_.run()
+#
+#     ff_PT1[i, :] = m_.recorders['failure_frequency_PT1'].values()
+#
+# fig, ax = plt.subplots(figsize=(12, 15))
+# for i in range(15):
+#     ax.plot(ff_PT1[:, i], marker='o', label="Scenario {}".format(i))
+#
+# ax.legend()
+# fig.show()
+
+
+#%% run/simulate the same Pywr model and make Plotly plots
+
+# BUBBLE PLOT OF FAILURE FREQUENCY IN EACH SCENARIO
+
+# ff_PT1 = np.zeros((2, 2, 15))
+#
+# thresh_list = -0.84 * np.atleast_2d(np.arange(2)).T.repeat(num_DP, axis=1)
+# acts_list = 30 * np.atleast_2d(np.arange(1, 3)).T.repeat(num_DP, axis=1)
+#
+# for i in range(2):
+#     for j in range(2):
+#         thresh = thresh_list[i, :]
+#         acts = acts_list[j, :]
+#
+#         m_ = make_model(threshold_vals=thresh, action_vals=acts)  # function in example_sim_opt.py
+#         m_.check()
+#         m_.check_graph()
+#         m_.find_orphaned_parameters()
+#
+#         m_.run()
+#
+#         ff_PT1[i, j, :] = m_.recorders['failure_frequency_PT1'].values()
+#
+# bubble_size = np.sqrt(ff_PT1)
+#
+# fig = make_subplots(rows=3, cols=5)
+# for i in range(15):
+#     fig.add_trace(
+#         go.Scatter(
+#             x=np.repeat(thresh_list[:, 0], 2),
+#             y=np.tile(acts_list[:, 0], 2),
+#             name="Scenario " + str(i + 1),
+#             mode="markers",
+#             marker=dict(
+#                 size=bubble_size[:, :, i].flatten(),
+#                 sizemode='area',
+#                 sizeref=2.*np.max(bubble_size)/(40**2),
+#                 # sizemin=4
+#             )
+#         ),
+#         row=1 + i // 5,
+#         col=1 + i % 5
+#     )
+#
+# fig.show()
+
+
+# PARALLEL COORDINATES PLOT
+
+# results = pd.DataFrame()
+# results['scenario'] = pd.Series(np.arange(1, 16))
+# for i in range(5):
+#     thresh = np.ones(num_DP) * -0.84 * i
+#     acts = np.ones(num_DP) * 30
+#
+#     m_ = make_model(threshold_vals=thresh, action_vals=acts)  # function in example_sim_opt.py
+#     m_.check()
+#     m_.check_graph()
+#     m_.find_orphaned_parameters()
+#
+#     m_.run()
+#
+#     ff_PT1 = m_.recorders['failure_frequency_PT1'].values()
+#     ff_Ag = m_.recorders['failure_frequency_Ag'].values()
+#
+#     results[str(-0.84*i)] = [x for x in ff_PT1]
+#
+# fig = px.parallel_coordinates(
+#     results,
+#     color="scenario"
+# )
+
+
+# fig.show()
+
+
+#%% Structures for plots
+
+# import numpy as np
+# import matplotlib.pyplot as plt
+# import pandas as pd
+# import plotly.express as px
+#
+# # Heatmap
+# fig1, ax1 = plt.subplots()
+# x, y = np.meshgrid(np.arange(10), np.arange(10))
+# z = x**2 - y**2
+#
+# c = ax1.imshow(z, cmap='Greens', vmin=z.min(), vmax=z.max(),
+#                extent=[x.min() - 0.5, x.max() + 0.5, y.min() - 0.5, y.max() + 0.5],
+#                interpolation='nearest', origin='lower')
+# ax1.set_xticks(np.arange(10))
+# ax1.set_yticks(np.arange(10))
+# fig1.colorbar(c, ax=ax1)
+# ax1.set_title('matplotlib.pyplot.imshow() function Example',
+#           fontweight="bold")
 # plt.show()
 #
-# embalse_maipo_storage = m_.recorders["Embalse Maipo storage"].data[:, 0]
-# plt.plot(embalse_maipo_storage)
-# plt.xlabel('time')
-# plt.ylabel('storage')
-# plt.ylim(0, 225)
-# plt.axhline(y=np.mean(embalse_maipo_storage), color='red', linestyle='--', label="Avg storage")
-# plt.title('Embalse Maipo storage')
-# plt.legend()
-# plt.show()
-
-water_rights_left = m_.recorders["Remaining water rights per week"].data[:, 0]
-ag_demand = m_.recorders["Agricultural demand recorder"].data[:, 0]
-plt.plot(water_rights_left, label="Water rights")
-plt.plot(ag_demand, label="Agricultural demand")
-plt.xlabel('Time')
-plt.ylabel('Water rights')
-plt.ylim(0, 150)
-plt.axhline(y=np.mean(water_rights_left), color='red', linestyle='--', label="Avg water rights")
-plt.title('Remaining water rights')
-plt.legend()
-plt.show()
-
-# ag_flow = m_.recorders["Agriculture flow"].data[:, 0]
-# plt.plot(ag_flow)
-# plt.xlabel('time')
-# plt.ylabel('flow')
-# plt.ylim(0, 20)
-# plt.axhline(y=np.mean(ag_flow), color='red', linestyle='--', label="Avg flow")
-# plt.title('Agriculture flow')
-# plt.legend()
-# plt.show()
+#
+# # Parallel coordinates (opens in firefox)
+# df = px.data.iris()
+# fig = px.parallel_coordinates(df, color="species_id", labels={"species_id": "Species",
+#                 "sepal_width": "Sepal Width", "sepal_length": "Sepal Length",
+#                 "petal_width": "Petal Width", "petal_length": "Petal Length", },
+#                              color_continuous_scale=px.colors.diverging.Tealrose,
+#                              color_continuous_midpoint=2)
+# fig.show()

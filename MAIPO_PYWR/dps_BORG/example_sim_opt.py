@@ -23,8 +23,11 @@ from MAIPO_PYWR.MAIPO_parameters import *
 
 # from pysedsim_main.PySedSim import pysedsim
 
-
-def make_model(threshold_vals, action_vals):
+num_k = 1  # number of levels in policy tree
+num_DP = 7  # number of decision periods
+def make_model(contract_threshold_vals=-999999*np.ones(num_DP), contract_action_vals=np.zeros(num_DP),
+               demand_threshold_vals=[], demand_action_vals=[np.ones(12)], indicator="SRI3",
+               drought_status_agg="drought_status_single_day_using_agg"):
     '''
     Purpose: Creates a Pywr model with the specified number and values for policy thresholds/actions. Intended for use with MOEAs.
 
@@ -61,7 +64,8 @@ def make_model(threshold_vals, action_vals):
     )
 
     # SCENARIOS
-    Scenario(model, name="climate change", size=15)
+    num_scenarios = 15
+    Scenario(model, name="climate change", size=num_scenarios)
 
     # REQUIRED NODES FOR PARAMETERS
     # DP_index
@@ -179,25 +183,58 @@ def make_model(threshold_vals, action_vals):
     )
 
     # PARAMETERS
-    # drought_status
+    # multiple usable drought_status parameters:
+    # drought_status_single_day (uses just the first day of april/october)
     df = {
-        'url': '../data/SRI3.csv',  # 'data/SRI3.csv'
+        'url': '../data/{}.csv'.format(indicator),  # 'data/SRI6.csv'
         "parse_dates": True,
         "index_col": "Timestamp",
         "dayfirst": True}
     DataFrameParameter(
         model,
         dataframe=read_dataframe(model, df),
-        name="drought_status",
+        name="drought_status_single_day",
         scenario=model.scenarios.scenarios[0],
     )
-    paramIndex["drought_status"] = model.parameters.__len__() - 1
-    model.parameters._objects[paramIndex["drought_status"]].name = "drought_status"  # add name to parameter
+    paramIndex["drought_status_single_day"] = model.parameters.__len__() - 1
+    model.parameters._objects[paramIndex["drought_status_single_day"]].name = "drought_status_single_day"  # add name to parameter
+
+
+    # drought_status_min_recent (lowest drought status in past month)
+    # WILL LIKELY HAVE TO BUILD FROM DATAFRAMEPARAMETER
+
+
+    # drought_status_percentile_recent (percentile drought status in past month)
+    # WILL LIKELY HAVE TO BUILD FROM DATAFRAMEPARAMETER
+
+
+    # drought_status_threshold_passes (times a given threshold passed in recent time period)
+    # WILL LIKELY HAVE TO BUILD FROM DATAFRAMEPARAMETER
+
+
+    # drought_status_aggregation (aggregations of threshold in recent time period)
+    # WILL LIKELY HAVE TO BUILD FROM DATAFRAMEPARAMETER
+    # MOST GENERAL -- COULD TRY TO MAKE FIRST!
+    df = {
+        'url': '../data/{}.csv'.format(indicator),  # 'data/SRI6.csv'
+        "parse_dates": True,
+        "index_col": "Timestamp",
+        "dayfirst": True}
+    DroughtStatusAggregationParameter(
+        model,
+        dataframe=read_dataframe(model, df),
+        name="drought_status_single_day_using_agg",
+        agg_func=lambda x: x[len(x) - 1],
+        num_weeks=1,
+        scenario=model.scenarios.scenarios[0]
+    )
+    paramIndex["drought_status_single_day_using_agg"] = model.parameters.__len__() - 1
+    model.parameters._objects[paramIndex["drought_status_single_day_using_agg"]].name = "drought_status_single_day_using_agg"  # add name to parameter
 
 
     # april_threshold
     april_thresholds = []
-    for i, k in enumerate(threshold_vals):
+    for i, k in enumerate(contract_threshold_vals):
         april_thresholds.append(ConstantParameter(model, name=f"april_threshold{i}", value=k, is_variable=False, upper_bounds=0))
         paramIndex[f"april_threshold{i}"] = model.parameters.__len__() - 1
     IndexedArrayParameter(
@@ -211,7 +248,7 @@ def make_model(threshold_vals, action_vals):
 
     # october_threshold
     october_thresholds = []
-    for i, k in enumerate(threshold_vals):
+    for i, k in enumerate(contract_threshold_vals):
         october_thresholds.append(ConstantParameter(model, name=f"october_threshold{i}", value=k, is_variable=False, upper_bounds=0))
         paramIndex[f"october_threshold{i}"] = model.parameters.__len__() - 1
     IndexedArrayParameter(
@@ -225,7 +262,7 @@ def make_model(threshold_vals, action_vals):
 
     # april_contract
     april_contracts = []
-    for i, k in enumerate(action_vals):
+    for i, k in enumerate(contract_action_vals):
         april_contracts.append(ConstantParameter(model, name=f"april_contract{i}", value=k, is_variable=False, upper_bounds=1500))
         paramIndex[f"april_contract{i}"] = model.parameters.__len__() - 1
     IndexedArrayParameter(
@@ -239,7 +276,7 @@ def make_model(threshold_vals, action_vals):
 
     # october_contract
     october_contracts = []
-    for i, k in enumerate(action_vals):
+    for i, k in enumerate(contract_action_vals):
         october_contracts.append(ConstantParameter(model, name=f"october_contract{i}", value=k, is_variable=False, upper_bounds=1500))
         paramIndex[f"april_contract{i}"] = model.parameters.__len__() - 1
     IndexedArrayParameter(
@@ -256,21 +293,21 @@ def make_model(threshold_vals, action_vals):
         model,
         name="contract_value",
         thresholds={
-            "1": model.parameters["april_threshold"],  # april_threshold parameter
-            "27": model.parameters["october_threshold"]  # october_threshold parameter
+            1: model.parameters["april_threshold"],  # april_threshold parameter
+            27: model.parameters["october_threshold"]  # october_threshold parameter
         },
         contracts={
-            "1": model.parameters["april_contract"],  # april_threshold parameter
-            "27": model.parameters["october_contract"]  # october_threshold parameter
+            1: model.parameters["april_contract"],  # april_threshold parameter
+            27: model.parameters["october_contract"]  # october_threshold parameter
         },
-        drought_status=model.parameters["drought_status"],  # drought_status parameter
+        drought_status=model.parameters[drought_status_agg],  # drought_status parameter
         comment="Receive two dates where the drought status is evaluated, the contract and the reservoir evaluated, and gives back the amount of shares transferred in that specific week"
     )
     paramIndex["contract_value"] = model.parameters.__len__() - 1
 
     # purchases_value
     purchases = []
-    for i in range(len(action_vals)):
+    for i in range(len(contract_action_vals)):
         purchases.append(ConstantParameter(model, name=f"purchase{i}", value=0, is_variable=False, upper_bounds=813))
         paramIndex[f"purchase{i}"] = model.parameters.__len__() - 1
     AccumulatedIndexedArrayParameter(
@@ -281,50 +318,59 @@ def make_model(threshold_vals, action_vals):
         comment="parameter that set the shares bought at a determined dp, accumulating past purchases"
     )
 
-    # thresholds for level1 policy
-    ConstantParameter(
-        model,
-        name="level1",
-        value=-10000
-    )
-    paramIndex["level1"] = model.parameters.__len__() - 1
+    # # thresholds for level1 demand restriction
+    # ConstantParameter(
+    #     model,
+    #     name="level1",
+    #     value=-10000
+    # )
+    # paramIndex["level1"] = model.parameters.__len__() - 1
+    #
+    # # thresholds for level2 demand restriction
+    # ConstantParameter(
+    #     model,
+    #     name="level2",
+    #     value=-20000
+    # )
+    # paramIndex["level2"] = model.parameters.__len__() - 1
 
-    # thresholds for level2 policy
-    ConstantParameter(
-        model,
-        name="level2",
-        value=-20000
-    )
-    paramIndex["level2"] = model.parameters.__len__() - 1
+
+    demand_control_curves = []
+    for i in range(len(demand_threshold_vals)):
+        # Assume we only pass in monthly profiles
+        demand_control_curves.append(
+            MonthlyProfileParameter(
+                model, name=f"demand_control_curve{i}", values=demand_threshold_vals[i]
+            )
+        )
+        paramIndex[f"demand_control_curve{i}"] = model.parameters.__len__() - 1
 
     # demand restriction level (done with indicators)
     IndicatorControlCurveIndexParameter(
         model,
         name="demand_restriction_level",
-        indicator=model.parameters["drought_status"],
-        control_curves=[
-            model.parameters["level1"],
-            model.parameters["level2"]
-        ]
+        indicator=model.parameters["drought_status_single_day"],
+        control_curves=demand_control_curves
     )
     paramIndex["demand_restriction_level"] = model.parameters.__len__() - 1
+
+
+    monthly_demand_restrictions = []
+    for i in range(len(demand_action_vals)):
+        # Assume we only pass in monthly profiles
+        monthly_demand_restrictions.append(
+            MonthlyProfileParameter(
+                model, name=f"monthly_demand_restriction{i}", values=demand_action_vals[i]
+            )
+        )
+        paramIndex[f"monthly_demand_restriction{i}"] = model.parameters.__len__() - 1
 
     # Demand restriction factor
     IndexedArrayParameter(
         model,
         name="demand_restriction_factor",
         index_parameter=model.parameters["demand_restriction_level"],
-        params=[
-            ConstantParameter(model, value=1),
-            MonthlyProfileParameter(
-                model,
-                values=[0.90, 0.90, 0.95, 0.95, 0.95, 0.95, 0.95, 0.95, 0.95, 0.95, 0.90, 0.90]
-            ),
-            MonthlyProfileParameter(
-                model,
-                values=[0.75, 0.75, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.75, 0.75]
-            ),
-        ]
+        params=monthly_demand_restrictions
     )
     paramIndex["demand_restriction_factor"] = model.parameters.__len__() - 1
 
@@ -600,14 +646,47 @@ def make_model(threshold_vals, action_vals):
     # Restricted demand through PT1
     AggregatedParameter(
         model,
-        name="demand_max_flow",
+        name="demand_max_flow_PT1",
         parameters=[
             model.parameters['demanda_PT1'],
             model.parameters['demand_restriction_factor']
         ],
         agg_func="product"
     )
-    paramIndex["demand_max_flow"] = model.parameters.__len__() - 1
+    paramIndex["demand_max_flow_PT1"] = model.parameters.__len__() - 1
+
+
+    # Monthly agricultural demand
+    MonthlyProfileParameter(
+        model,
+        name="agricultural_demand",
+        # values approximated by scaling water rights profile by ratio of demand to rights
+        values=[18.01638039, 17.94856465, 17.84307351, 17.8053981, 17.7225122, 17.74511745,
+                17.76772269, 17.77525777, 17.78279286, 17.91088925, 17.97870498, 18.15201186]
+    )
+    paramIndex['agricultural_demand'] = model.parameters.__len__() - 1
+
+    # Monthly agricultural water rights
+    MonthlyProfileParameter(
+        model,
+        name="agricultural_water_rights",
+        # values taken from DGA paper, changing from m3/s to Mm3/week
+        values=[144.60768, 144.06336, 143.21664, 142.91424, 142.24896, 142.4304,
+                142.61184, 142.67232, 142.7328,  143.76096, 144.30528, 145.69632]
+    )
+    paramIndex['agricultural_water_rights'] = model.parameters.__len__() - 1
+
+    # Restricted demand through Agriculture
+    AggregatedParameter(
+        model,
+        name="demand_max_flow_Ag",
+        parameters=[
+            model.parameters['agricultural_demand'],
+            model.parameters['demand_restriction_factor']
+        ],
+        agg_func="product"
+    )
+    paramIndex["demand_max_flow_Ag"] = model.parameters.__len__() - 1
 
 
     # demanda_PT2
@@ -634,25 +713,6 @@ def make_model(threshold_vals, action_vals):
     )
     paramIndex['demanda_PT2_negativa'] = model.parameters.__len__() - 1
 
-    # Monthly agricultural demand
-    MonthlyProfileParameter(
-        model,
-        name="agricultural_demand",
-        # values approximated by scaling water rights profile by ratio of demand to rights
-        values=[18.01638039, 17.94856465, 17.84307351, 17.8053981, 17.7225122, 17.74511745,
-                17.76772269, 17.77525777, 17.78279286, 17.91088925, 17.97870498, 18.15201186]
-    )
-    paramIndex['agricultural_demand'] = model.parameters.__len__() - 1
-
-    # Monthly agricultural water rights
-    MonthlyProfileParameter(
-        model,
-        name="agricultural_water_rights",
-        # values taken from DGA paper, changing from m3/s to Mm3/week
-        values=[144.60768, 144.06336, 143.21664, 142.91424, 142.24896, 142.4304,
-                142.61184, 142.67232, 142.7328,  143.76096, 144.30528, 145.69632]
-    )
-    paramIndex['agricultural_water_rights'] = model.parameters.__len__() - 1
 
     # requisito_embalse
     StorageThresholdParameter(
@@ -877,6 +937,19 @@ def make_model(threshold_vals, action_vals):
     )
     paramIndex['ag_max_flow'] = model.parameters.__len__() - 1
 
+    # Restricted Ag max flow
+    AggregatedParameter(
+        model,
+        parameters=[
+            model.parameters["agricultural_water_rights"],
+            model.parameters["derechos_sobrantes_contrato"],
+            model.parameters["demand_max_flow_Ag"]
+        ],
+        agg_func=lambda arr: np.min([np.max([arr[0] - arr[1], 0]), arr[2]]),
+        name="restricted_ag_max_flow"
+    )
+    paramIndex['restricted_ag_max_flow'] = model.parameters.__len__() - 1
+
     # WATER RIGHTS LEFT -- JUST FOR TESTING
     AggregatedParameter(
         model,
@@ -1052,11 +1125,22 @@ def make_model(threshold_vals, action_vals):
         max_flow=model.parameters["demanda_PT1"]
     )
 
+    # PT1 = RestrictedOutput(
+    #     model,
+    #     name="PT1",
+    #     desired_flow=model.parameters["demanda_PT1"],
+    #     restriction_factor=model.parameters["demand_restriction_factor"],
+    #     cost=-10000
+    # )
+
+    # CAN CREATE A NEW NODE EXTENDING OUTPUT THAT TAKES IN A DESIRED FLOW AND RESTRICTION, LETS US
+    # IMPLEMENT DEMAND RESTRICTIONS AND CREATE METRICS WITH DESIRED FLOW MORE CONSISELY
+
     # PT1 output node representing restricted demand
     PT1_output = Output(
         model,
         name="PT1_output",
-        max_flow=model.parameters["demand_max_flow"],
+        max_flow=model.parameters["demand_max_flow_PT1"],
         cost=-10000
     )
 
@@ -1132,6 +1216,14 @@ def make_model(threshold_vals, action_vals):
         cost=-600  # More negative than Salida_Maipo but not enough to take from Embalse
     )
 
+    # Agriculture output node representing restricted demand
+    # Agriculture_output = Output(
+    #     model,
+    #     name="Agriculture_output",
+    #     max_flow=model.parameters["restricted_ag_max_flow"],
+    #     cost=-600
+    # )
+
     '''
     TO ADD:
     Negative parameter version of contrato (or derechos_sobrantes_contrato)
@@ -1196,6 +1288,8 @@ def make_model(threshold_vals, action_vals):
     aux_PT1.connect(PT1)
 
     PT1.connect(PT1_output)  # add demand restriction as a new node
+    # Agriculture.connect(Agriculture_output)  # add demand restriction as a new node
+
 
     # RECORDERS
     # RollingMeanFlowElManzano
@@ -1352,6 +1446,16 @@ def make_model(threshold_vals, action_vals):
     )
     recorderIndex['deficit PT1'] = model.recorders.__len__() - 1
 
+    # deficit Ag
+    TotalDeficitNodeRecorder(
+        model,
+        node=Agriculture,
+        is_objective="min",
+        comment="Total deficit recorded on Agriculture",
+        name="deficit Ag"
+    )
+    recorderIndex['deficit Ag'] = model.recorders.__len__() - 1
+
     # Caudal en salida promedio
     MeanFlowNodeRecorder(
         model,
@@ -1454,6 +1558,7 @@ def make_model(threshold_vals, action_vals):
 
 
 
+
     # check model validity
     model.check_graph()  # check the connectivity of the graph
     model.check()  # check the validity of the model
@@ -1461,7 +1566,8 @@ def make_model(threshold_vals, action_vals):
     return model
 
 
-
+# We could call with contract_threshold_vals, contract_action_vals,
+# demand_threshold_vals, demand_action_vals
 def Simulation_Caller(vars):
     '''
     Purpose: Borg calls this function to run the simulation model and return multi-objective performance.
@@ -1475,13 +1581,57 @@ def Simulation_Caller(vars):
         performance: policy's simulated objective values. A list of objective values, one value each of the objectives.
     '''
 
-    borg_vars = vars  # Decision variable values from Borg
+    # borg_vars = vars  # Decision variable values from Borg
+    #
+    # # Reformat decision variable values as necessary (.e.g., cast borg output parameters as array for use in simulation)
+    # op_policy_params = np.asarray(borg_vars)
+    #
+    # # Call/run simulation model, return multi-objective performance:
+    # performance = pysedsim.PySedSim(decision_vars=op_policy_params)
 
-    # Reformat decision variable values as necessary (.e.g., cast borg output parameters as array for use in simulation)
-    op_policy_params = np.asarray(borg_vars)
+    num_k = 1  # number of levels in policy tree
+    num_DP = 7  # number of decision periods
 
-    # Call/run simulation model, return multi-objective performance:
-    performance = pysedsim.PySedSim(decision_vars=op_policy_params)
+    params = {
+        'contract_threshold_vals': vars[0] * np.ones(num_DP),
+        'contract_action_vals': vars[1] * np.ones(num_DP),
+        'demand_threshold_vals': [vars[2] * np.ones(12)],
+        'demand_action_vals': [vars[3] * np.ones(12), np.ones(12)]
+    }
+
+    # WHAT IN PARTICULAR ARE WE RETURNING HERE?
+    # SHOULD PROBABLY CALL CHECK_GRAPH AND STUFF, THEN RUN, THEN GET RECORDER VALS
+
+    model = make_model(**params)
+    model.check()
+    model.check_graph()
+    model.find_orphaned_parameters()
+    model.run()
+
+    func_list = {
+        'mean': np.mean,
+        'max': np.max,
+        'min': np.min
+    }
+
+    def get_performance(recorder):
+        model.recorders['failure_frequency_PT1']
+        func = func_list[recorder.agg_func]
+        values = recorder.values()
+        return func(values)
+
+    # I think borg wants to maximize, so adding negatives where needed
+    performance = [
+        -get_performance(model.recorders['failure_frequency_PT1']),
+        -get_performance(model.recorders['failure_frequency_Ag']),
+        -get_performance(model.recorders['total_cost']),
+        -get_performance(model.recorders['deficit PT1']),
+        -get_performance(model.recorders['deficit Ag']),
+        get_performance(model.recorders['Caudal en salida promedio']),
+        -get_performance(model.recorders['Maximum Deficit PT1']),
+        -get_performance(model.recorders['Maximum Deficit Ag']),
+        -get_performance(model.recorders['Total Contracts Made']),
+    ]
 
     return performance
 
@@ -1501,18 +1651,39 @@ def Optimization():
 
     parallel = 1  # 1= master-slave (parallel), 0=serial
 
-    # The following are just examples of relevant MOEA specifications. Select your own values.
-    nSeeds = 25  # Number of random seeds (Borg MOEA)
-    num_dec_vars = 10  # Number of decision variables
-    n_objs = 6  # Number of objectives
+    # List of objectives:
+    # failure_frequency_PT1 (minimize)
+    # failure_frequency_Ag (minimize)
+    # TotalCost (minimize)
+    # deficit PT1 (minimize)
+    # deficit Ag (minimize)
+    # Caudal en salida promedio (mean flow at system output, maximize)
+    # Maximum Deficit PT1 (minimize)
+    # Maximum Deficit Ag (minimize)
+    # Total Contracts Made (minimize)
+
+    data = pd.read_csv("C:\\Users\\danny\\Pywr projects\\MAIPO_PYWR\\data\\Extra data.csv")
+    urban_demand = data["PT1"]
+    num_weeks = len(urban_demand)
+    total_urban_demand = urban_demand.sum()
+
+    agricultural_demand_profile = np.array([18.01638039, 17.94856465, 17.84307351, 17.8053981, 17.7225122, 17.74511745,
+                                            17.76772269, 17.77525777, 17.78279286, 17.91088925, 17.97870498,
+                                            18.15201186])
+    total_ag_demand = np.mean(agricultural_demand_profile) * num_weeks  # technically slightly off, but very close
+
+    # Most below chosen arbitrarily
+    nSeeds = 5  # Number of random seeds (Borg MOEA)
+    num_dec_vars = 4  # Number of decision variables
+    n_objs = 9  # Number of objectives
     n_constrs = 0  # Number of constraints
-    num_func_evals = 30000  # Number of total simulations to run per random seed. Each simulation may be a monte carlo.
-    runtime_freq = 1000  # Interval at which to print runtime details for each random seed
-    decision_var_range = [[0, 1], [4, 6], [-1, 4], [1, 2], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1]]
-    epsilon_list = [50000, 1000, 0.025, 10, 13, 4]  # Borg epsilon values for each objective
+    num_func_evals = 100  # Number of total simulations to run per random seed. Each simulation may be a monte carlo.
+    runtime_freq = 100  # Interval at which to print runtime details for each random seed
+    decision_var_range = [[-2, 1], [0, 100], [-2, 1], [0, 1]]
+    epsilon_list = [0.01, 0.01, 0.05e9, 0.01*total_urban_demand, 0.01*total_ag_demand, 5, 0.25, 0.25, 1]  # Borg epsilon values for each objective
 
     # Where to save seed and runtime files
-    main_output_file_dir = 'E:\output_directory'  # Specify location of output files for different seeds
+    main_output_file_dir = 'C:\\Users\\danny\\Pywr projects\\MAIPO_PYWR\\outputs\\first_optimization_attempts'  # Specify location of output files for different seeds
     os_fold = Op_Sys_Folder_Operator()  # Folder operator for operating system
     output_location = main_output_file_dir + os_fold + 'sets'
 

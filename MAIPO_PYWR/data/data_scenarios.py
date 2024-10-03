@@ -10,6 +10,7 @@ import re
 # PYWR data files
 data_names = ['COLORADO', 'LAGUNANEGRA', 'MAIPO', 'VOLCAN', 'YESO', 'MAIPOEXTRA']
 scenarios = pd.read_csv('data/COLORADO.csv').columns[1::]
+# scenarios = pd.read_csv('data/COLORADO_2004Wk14-2099Wk13.csv').columns[1::]
 scenario = 'RCP_45_Pp_50_Temp_50'  # lower average warming scenario
 
 for j, s in enumerate(scenarios):
