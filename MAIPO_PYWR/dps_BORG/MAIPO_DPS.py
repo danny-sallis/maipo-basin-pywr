@@ -697,6 +697,13 @@ class DroughtStatusAggregationParameter(Parameter):
 DroughtStatusAggregationParameter.register()
 
 
+class DroughtStatusMinAggregationParameter(DroughtStatusAggregationParameter):
+    def __init__(self, model, dataframe, num_weeks=1, scenario=None, timestep_offset=0, **kwargs):
+        super(DroughtStatusMinAggregationParameter, self).__init__(model, dataframe, lambda x: np.min(x), num_weeks, scenario, timestep_offset, **kwargs)
+
+DroughtStatusMinAggregationParameter.register()
+
+
 class ReservoirCostRecorder (Recorder):
     """
         Spanish:

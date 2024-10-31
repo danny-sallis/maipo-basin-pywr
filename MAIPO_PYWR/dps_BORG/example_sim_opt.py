@@ -11,10 +11,11 @@ from pywr.parameters import *
 from pywr.parameters._thresholds import StorageThresholdParameter, ParameterThresholdParameter
 from pywr.recorders import DeficitFrequencyNodeRecorder, TotalDeficitNodeRecorder, MeanFlowNodeRecorder, \
     NumpyArrayParameterRecorder, NumpyArrayStorageRecorder, RollingMeanFlowNodeRecorder, AggregatedRecorder
-#from MAIPO_searcher import *
+# from MAIPO_searcher import *
 from pywr.dataframe_tools import *
 
 from MAIPO_PYWR.MAIPO_parameters import *
+
 # from MAIPO_PYWR.dps_BORG.MAIPO_DPS import IndicatorParameter, IndicatorControlCurveIndexParameter
 
 
@@ -25,7 +26,9 @@ from MAIPO_PYWR.MAIPO_parameters import *
 
 num_k = 1  # number of levels in policy tree
 num_DP = 7  # number of decision periods
-def make_model(contract_threshold_vals=-999999*np.ones(num_DP), contract_action_vals=np.zeros(num_DP),
+
+
+def make_model(contract_threshold_vals=-999999 * np.ones(num_DP), contract_action_vals=np.zeros(num_DP),
                demand_threshold_vals=[], demand_action_vals=[np.ones(12)], indicator="SRI3",
                drought_status_agg="drought_status_single_day_using_agg"):
     '''
@@ -40,7 +43,7 @@ def make_model(contract_threshold_vals=-999999*np.ones(num_DP), contract_action_
     '''
 
     # set current working directory
-    #os.chdir(os.path.abspath(os.path.dirname(__file__)))
+    # os.chdir(os.path.abspath(os.path.dirname(__file__)))
 
     # create a Pywr model (including an empty network)
     model = Model()
@@ -175,7 +178,6 @@ def make_model(contract_threshold_vals=-999999*np.ones(num_DP), contract_action_
     )
     paramIndex['flujo_excedentes_Yeso'] = model.parameters.__len__() - 1
 
-
     # El Manzano
     El_Manzano = River(
         model,
@@ -197,20 +199,17 @@ def make_model(contract_threshold_vals=-999999*np.ones(num_DP), contract_action_
         scenario=model.scenarios.scenarios[0],
     )
     paramIndex["drought_status_single_day"] = model.parameters.__len__() - 1
-    model.parameters._objects[paramIndex["drought_status_single_day"]].name = "drought_status_single_day"  # add name to parameter
-
+    model.parameters._objects[
+        paramIndex["drought_status_single_day"]].name = "drought_status_single_day"  # add name to parameter
 
     # drought_status_min_recent (lowest drought status in past month)
     # WILL LIKELY HAVE TO BUILD FROM DATAFRAMEPARAMETER
 
-
     # drought_status_percentile_recent (percentile drought status in past month)
     # WILL LIKELY HAVE TO BUILD FROM DATAFRAMEPARAMETER
 
-
     # drought_status_threshold_passes (times a given threshold passed in recent time period)
     # WILL LIKELY HAVE TO BUILD FROM DATAFRAMEPARAMETER
-
 
     # drought_status_aggregation (aggregations of threshold in recent time period)
     # WILL LIKELY HAVE TO BUILD FROM DATAFRAMEPARAMETER
@@ -229,13 +228,14 @@ def make_model(contract_threshold_vals=-999999*np.ones(num_DP), contract_action_
         scenario=model.scenarios.scenarios[0]
     )
     paramIndex["drought_status_single_day_using_agg"] = model.parameters.__len__() - 1
-    model.parameters._objects[paramIndex["drought_status_single_day_using_agg"]].name = "drought_status_single_day_using_agg"  # add name to parameter
-
+    model.parameters._objects[paramIndex[
+        "drought_status_single_day_using_agg"]].name = "drought_status_single_day_using_agg"  # add name to parameter
 
     # april_threshold
     april_thresholds = []
     for i, k in enumerate(contract_threshold_vals):
-        april_thresholds.append(ConstantParameter(model, name=f"april_threshold{i}", value=k, is_variable=False, upper_bounds=0))
+        april_thresholds.append(
+            ConstantParameter(model, name=f"april_threshold{i}", value=k, is_variable=False, upper_bounds=0))
         paramIndex[f"april_threshold{i}"] = model.parameters.__len__() - 1
     IndexedArrayParameter(
         model,
@@ -249,7 +249,8 @@ def make_model(contract_threshold_vals=-999999*np.ones(num_DP), contract_action_
     # october_threshold
     october_thresholds = []
     for i, k in enumerate(contract_threshold_vals):
-        october_thresholds.append(ConstantParameter(model, name=f"october_threshold{i}", value=k, is_variable=False, upper_bounds=0))
+        october_thresholds.append(
+            ConstantParameter(model, name=f"october_threshold{i}", value=k, is_variable=False, upper_bounds=0))
         paramIndex[f"october_threshold{i}"] = model.parameters.__len__() - 1
     IndexedArrayParameter(
         model,
@@ -263,7 +264,8 @@ def make_model(contract_threshold_vals=-999999*np.ones(num_DP), contract_action_
     # april_contract
     april_contracts = []
     for i, k in enumerate(contract_action_vals):
-        april_contracts.append(ConstantParameter(model, name=f"april_contract{i}", value=k, is_variable=False, upper_bounds=1500))
+        april_contracts.append(
+            ConstantParameter(model, name=f"april_contract{i}", value=k, is_variable=False, upper_bounds=1500))
         paramIndex[f"april_contract{i}"] = model.parameters.__len__() - 1
     IndexedArrayParameter(
         model,
@@ -277,7 +279,8 @@ def make_model(contract_threshold_vals=-999999*np.ones(num_DP), contract_action_
     # october_contract
     october_contracts = []
     for i, k in enumerate(contract_action_vals):
-        october_contracts.append(ConstantParameter(model, name=f"october_contract{i}", value=k, is_variable=False, upper_bounds=1500))
+        october_contracts.append(
+            ConstantParameter(model, name=f"october_contract{i}", value=k, is_variable=False, upper_bounds=1500))
         paramIndex[f"april_contract{i}"] = model.parameters.__len__() - 1
     IndexedArrayParameter(
         model,
@@ -334,7 +337,6 @@ def make_model(contract_threshold_vals=-999999*np.ones(num_DP), contract_action_
     # )
     # paramIndex["level2"] = model.parameters.__len__() - 1
 
-
     demand_control_curves = []
     for i in range(len(demand_threshold_vals)):
         # Assume we only pass in monthly profiles
@@ -353,7 +355,6 @@ def make_model(contract_threshold_vals=-999999*np.ones(num_DP), contract_action_
         control_curves=demand_control_curves
     )
     paramIndex["demand_restriction_level"] = model.parameters.__len__() - 1
-
 
     monthly_demand_restrictions = []
     for i in range(len(demand_action_vals)):
@@ -404,7 +405,6 @@ def make_model(contract_threshold_vals=-999999*np.ones(num_DP), contract_action_
     #     ]
     # )
     # paramIndex["demand_restriction_factor"] = model.parameters.__len__() - 1
-
 
     # flow_Yeso
     df = {
@@ -481,7 +481,6 @@ def make_model(contract_threshold_vals=-999999*np.ones(num_DP), contract_action_
     paramIndex['flow_Laguna Negra'] = model.parameters.__len__() - 1
     model.parameters._objects[paramIndex['flow_Laguna Negra']].name = 'flow_Laguna Negra'  # add name to parameter
 
-
     # flow_Maipo extra
     df = {
         'url': '../data/MAIPOEXTRA.csv',
@@ -496,7 +495,6 @@ def make_model(contract_threshold_vals=-999999*np.ones(num_DP), contract_action_
     )
     paramIndex['flow_Maipo extra'] = model.parameters.__len__() - 1
     model.parameters._objects[paramIndex['flow_Maipo extra']].name = 'flow_Maipo extra'  # add name to parameter
-
 
     # aux_acueductoln
     df = {
@@ -624,7 +622,8 @@ def make_model(contract_threshold_vals=-999999*np.ones(num_DP), contract_action_
         name="estacionalidad_distribucion"
     )
     paramIndex['estacionalidad_distribucion'] = model.parameters.__len__() - 1
-    model.parameters._objects[paramIndex['estacionalidad_distribucion']].name = 'estacionalidad_distribucion'  # add name to parameter
+    model.parameters._objects[
+        paramIndex['estacionalidad_distribucion']].name = 'estacionalidad_distribucion'  # add name to parameter
 
     # demanda_PT1
     df = {
@@ -642,7 +641,6 @@ def make_model(contract_threshold_vals=-999999*np.ones(num_DP), contract_action_
     paramIndex['demanda_PT1'] = model.parameters.__len__() - 1
     model.parameters._objects[paramIndex['demanda_PT1']].name = 'demanda_PT1'  # add name to parameter
 
-
     # Restricted demand through PT1
     AggregatedParameter(
         model,
@@ -655,39 +653,54 @@ def make_model(contract_threshold_vals=-999999*np.ones(num_DP), contract_action_
     )
     paramIndex["demand_max_flow_PT1"] = model.parameters.__len__() - 1
 
+    # # Agricultural demand on monthly cycle
+    # MonthlyProfileParameter(
+    #     model,
+    #     name="agricultural_demand",
+    #     # values approximated by scaling water rights profile by ratio of demand to rights
+    #     values=[18.01638039, 17.94856465, 17.84307351, 17.8053981, 17.7225122, 17.74511745,
+    #             17.76772269, 17.77525777, 17.78279286, 17.91088925, 17.97870498, 18.15201186]
+    # )
+    # paramIndex['agricultural_demand'] = model.parameters.__len__() - 1
 
-    # Monthly agricultural demand
-    MonthlyProfileParameter(
+
+    # Agricultural demand (doesn't vary much, treated as constant for now)
+    ConstantParameter(
         model,
-        name="agricultural_demand",
-        # values approximated by scaling water rights profile by ratio of demand to rights
-        values=[18.01638039, 17.94856465, 17.84307351, 17.8053981, 17.7225122, 17.74511745,
-                17.76772269, 17.77525777, 17.78279286, 17.91088925, 17.97870498, 18.15201186]
+        name="agricultural_demand_constant",
+        value=16.978
     )
-    paramIndex['agricultural_demand'] = model.parameters.__len__() - 1
+    paramIndex['agricultural_demand_constant'] = model.parameters.__len__() - 1
 
-    # Monthly agricultural water rights
-    MonthlyProfileParameter(
+    # # Agricultural water rights on monthly cycle
+    # MonthlyProfileParameter(
+    #     model,
+    #     name="agricultural_water_rights",
+    #     # values taken from DGA paper, changing from m3/s to Mm3/week
+    #     values=[144.60768, 144.06336, 143.21664, 142.91424, 142.24896, 142.4304,
+    #             142.61184, 142.67232, 142.7328, 143.76096, 144.30528, 145.69632]
+    # )
+    # paramIndex['agricultural_water_rights'] = model.parameters.__len__() - 1
+
+    # Agricultural shares (doesn't vary much, treated as constant for now)
+    ConstantParameter(
         model,
-        name="agricultural_water_rights",
-        # values taken from DGA paper, changing from m3/s to Mm3/week
-        values=[144.60768, 144.06336, 143.21664, 142.91424, 142.24896, 142.4304,
-                142.61184, 142.67232, 142.7328,  143.76096, 144.30528, 145.69632]
+        name="agricultural_shares_constant",
+        value=3408.639
     )
     paramIndex['agricultural_water_rights'] = model.parameters.__len__() - 1
 
-    # Restricted demand through Agriculture
-    AggregatedParameter(
-        model,
-        name="demand_max_flow_Ag",
-        parameters=[
-            model.parameters['agricultural_demand'],
-            model.parameters['demand_restriction_factor']
-        ],
-        agg_func="product"
-    )
-    paramIndex["demand_max_flow_Ag"] = model.parameters.__len__() - 1
-
+    # # Restricted demand through Agriculture
+    # AggregatedParameter(
+    #     model,
+    #     name="demand_max_flow_Ag",
+    #     parameters=[
+    #         model.parameters['agricultural_demand'],
+    #         model.parameters['demand_restriction_factor']
+    #     ],
+    #     agg_func="product"
+    # )
+    # paramIndex["demand_max_flow_Ag"] = model.parameters.__len__() - 1
 
     # demanda_PT2
     df = {
@@ -712,7 +725,6 @@ def make_model(contract_threshold_vals=-999999*np.ones(num_DP), contract_action_
         name="demanda_PT2_negativa"
     )
     paramIndex['demanda_PT2_negativa'] = model.parameters.__len__() - 1
-
 
     # requisito_embalse
     StorageThresholdParameter(
@@ -850,13 +862,29 @@ def make_model(contract_threshold_vals=-999999*np.ones(num_DP), contract_action_
         parameters=[
             model.parameters["AA_total_shares_constant"],
             model.parameters["purchases_value"],
-            model.parameters["contract_value"]
+            model.parameters["contract_value"],
+            model.parameters["agricultural_shares_constant"]
         ],
-        agg_func="sum",
+        # Shares bought can't be more than what ag has to give
+        agg_func=lambda x: np.min([x[0] + x[1] + x[2], x[0] + x[3]]),
         name="AA_total_shares",
         comment="expressed as absolute value of total shares"
     )
     paramIndex['AA_total_shares'] = model.parameters.__len__() - 1
+
+    # Agriculture_total_shares
+    AggregatedParameter(
+        model,
+        parameters=[
+            model.parameters["agricultural_shares_constant"],
+            model.parameters["purchases_value"],
+            model.parameters["contract_value"]
+        ],
+        agg_func=lambda x: np.max([x[0] - x[1] - x[2], 0]),
+        name="ag_total_shares",
+        comment="expressed as absolute value of total shares"
+    )
+    paramIndex['ag_total_shares'] = model.parameters.__len__() - 1
 
     # AA_total_shares_fraction_constant
     ConstantParameter(
@@ -878,6 +906,19 @@ def make_model(contract_threshold_vals=-999999*np.ones(num_DP), contract_action_
         comment="expressed as fraction of total shares"
     )
     paramIndex['AA_total_shares_fraction'] = model.parameters.__len__() - 1
+
+    # ag_total_shares_fraction
+    AggregatedParameter(
+        model,
+        parameters=[
+            model.parameters["ag_total_shares"],
+            model.parameters["AA_total_shares_fraction_constant"]
+        ],
+        agg_func="product",
+        name="ag_total_shares_fraction",
+        comment="expressed as fraction of total shares"
+    )
+    paramIndex['ag_total_shares_fraction'] = model.parameters.__len__() - 1
 
     # max_flow_perdicez
     AggregatedParameter(
@@ -924,42 +965,42 @@ def make_model(contract_threshold_vals=-999999*np.ones(num_DP), contract_action_
     )
     paramIndex['derechos_sobrantes_contrato'] = model.parameters.__len__() - 1
 
-    # Ag max flow
+    # ag max flow
     AggregatedParameter(
         model,
         parameters=[
-            model.parameters["agricultural_water_rights"],
-            model.parameters["derechos_sobrantes_contrato"],
-            model.parameters["agricultural_demand"]
+            model.parameters["caudal_naturalizado"],
+            model.parameters["estacionalidad_distribucion"],
+            model.parameters["ag_total_shares"]
         ],
-        agg_func=lambda arr: np.min([np.max([arr[0] - arr[1], 0]), arr[2]]),
+        agg_func="product",
         name="ag_max_flow"
     )
     paramIndex['ag_max_flow'] = model.parameters.__len__() - 1
 
-    # Restricted Ag max flow
-    AggregatedParameter(
-        model,
-        parameters=[
-            model.parameters["agricultural_water_rights"],
-            model.parameters["derechos_sobrantes_contrato"],
-            model.parameters["demand_max_flow_Ag"]
-        ],
-        agg_func=lambda arr: np.min([np.max([arr[0] - arr[1], 0]), arr[2]]),
-        name="restricted_ag_max_flow"
-    )
-    paramIndex['restricted_ag_max_flow'] = model.parameters.__len__() - 1
+    # # Restricted Ag max flow
+    # AggregatedParameter(
+    #     model,
+    #     parameters=[
+    #         model.parameters["agricultural_water_rights"],
+    #         model.parameters["contract_value"],
+    #         model.parameters["demand_max_flow_Ag"]
+    #     ],
+    #     agg_func=lambda arr: np.min([np.max([arr[0] - arr[1], 0]), arr[2]]),
+    #     name="restricted_ag_max_flow"
+    # )
+    # paramIndex['restricted_ag_max_flow'] = model.parameters.__len__() - 1
 
-    # WATER RIGHTS LEFT -- JUST FOR TESTING
-    AggregatedParameter(
-        model,
-        parameters=[
-            model.parameters["agricultural_water_rights"],
-            model.parameters["derechos_sobrantes_contrato"],
-        ],
-        agg_func=lambda arr: np.max([arr[0] - arr[1], 0]),
-        name="water_rights_left"
-    )
+    # # WATER RIGHTS LEFT -- JUST FOR TESTING
+    # AggregatedParameter(
+    #     model,
+    #     parameters=[
+    #         model.parameters["agricultural_water_rights"],
+    #         model.parameters["contract_value"],
+    #     ],
+    #     agg_func=lambda arr: np.max([arr[0] - arr[1], 0]),
+    #     name="water_rights_left"
+    # )
 
     # REMAINING NODES
     # Yeso
@@ -1117,7 +1158,6 @@ def make_model(contract_threshold_vals=-999999*np.ones(num_DP), contract_action_
         cost=-300
     )
 
-
     # PT1 (unrestricted, lets us find stats with true demand)
     PT1 = Link(
         model,
@@ -1209,27 +1249,27 @@ def make_model(contract_threshold_vals=-999999*np.ones(num_DP), contract_action_
         cost=-500
     )
 
-    Agriculture = Output(
+    # Agriculture node with true demand
+    Agriculture = Link(
         model,
         name="Agriculture",
+        max_flow=model.parameters["agricultural_demand_constant"]
+    )
+
+    # Agriculture output node with demand restricted by water rights
+    Agriculture_output = Output(
+        model,
+        name="Agriculture_output",
         max_flow=model.parameters["ag_max_flow"],
         cost=-600  # More negative than Salida_Maipo but not enough to take from Embalse
     )
-
-    # Agriculture output node representing restricted demand
-    # Agriculture_output = Output(
-    #     model,
-    #     name="Agriculture_output",
-    #     max_flow=model.parameters["restricted_ag_max_flow"],
-    #     cost=-600
-    # )
 
     '''
     TO ADD:
     Negative parameter version of contrato (or derechos_sobrantes_contrato)
     Aggregated sum parameter of Ag water rights and negative contract
     Aggregated max parameter of above param and Ag demand, to be Ag max flow
-    
+
     TO CONFIRM
     What's the difference between contrato and derechos_sobrantes?
     Also April contract and October contract?
@@ -1288,14 +1328,13 @@ def make_model(contract_threshold_vals=-999999*np.ones(num_DP), contract_action_
     aux_PT1.connect(PT1)
 
     PT1.connect(PT1_output)  # add demand restriction as a new node
-    # Agriculture.connect(Agriculture_output)  # add demand restriction as a new node
-
+    Agriculture.connect(Agriculture_output)  # add water rights limit as a new node
 
     # RECORDERS
     # RollingMeanFlowElManzano
     RollingMeanFlowNodeRecorder(
         model,
-        node=model.nodes["El Manzano"],  #El_Manzano
+        node=model.nodes["El Manzano"],  # El_Manzano
         timesteps=520,
         name="RollingMeanFlowElManzano"
     )
@@ -1311,7 +1350,18 @@ def make_model(contract_threshold_vals=-999999*np.ones(num_DP), contract_action_
     )
     recorderIndex['failure_frequency_PT1'] = model.recorders.__len__() - 1
 
-    # failure_frequency_Ag (measured with restricted demand)
+    def reliability_agg_func(x, axis=0):
+        return (1 - np.array(x)).reshape((15,))
+    # reliability_PT1 (measured with restricted demand)
+    AggregatedRecorder(
+        model,
+        recorders=[model.recorders['failure_frequency_PT1']],
+        recorder_agg_func=reliability_agg_func,
+        name="reliability_PT1"
+    )
+    recorderIndex['reliability_PT1'] = model.recorders.__len__() - 1
+
+    # failure_frequency_Ag
     DeficitFrequencyNodeRecorder(
         model,
         node=model.nodes["Agriculture"],  # Agriculture
@@ -1320,6 +1370,15 @@ def make_model(contract_threshold_vals=-999999*np.ones(num_DP), contract_action_
         name="failure_frequency_Ag"
     )
     recorderIndex['failure_frequency_Ag'] = model.recorders.__len__() - 1
+
+    # reliability_Ag
+    AggregatedRecorder(
+        model,
+        recorders=[model.recorders['failure_frequency_Ag']],
+        recorder_agg_func=reliability_agg_func,
+        name="reliability_Ag"
+    )
+    recorderIndex['reliability_Ag'] = model.recorders.__len__() - 1
 
     # ReservoirCost
     ReservoirCostRecorder(
@@ -1538,26 +1597,29 @@ def make_model(contract_threshold_vals=-999999*np.ones(num_DP), contract_action_
     )
     recorderIndex['Embalse storage'] = model.recorders.__len__() - 1
 
+    # Total inflow from reservoirs
+    NumpyArrayParameterRecorder(
+        model,
+        param=model.parameters["caudal_naturalizado"],
+        name="Total reservoir inflow"
+    )
+    recorderIndex['Total reservoir inflow'] = model.recorders.__len__() - 1
 
     # remaining water rights per week
     NumpyArrayParameterRecorder(
         model,
-        param=model.parameters["water_rights_left"],
+        param=model.parameters["ag_max_flow"],
         name="Remaining water rights per week"
     )
     recorderIndex['Remaining water rights per week'] = model.recorders.__len__() - 1
 
-
     # Agricultural demand
     NumpyArrayParameterRecorder(
         model,
-        param=model.parameters["agricultural_demand"],
+        param=model.parameters["agricultural_demand_constant"],
         name="Agricultural demand recorder",
     )
     recorderIndex['Agricultural demand recorder'] = model.recorders.__len__() - 1
-
-
-
 
     # check model validity
     model.check_graph()  # check the connectivity of the graph
@@ -1680,7 +1742,8 @@ def Optimization():
     num_func_evals = 100  # Number of total simulations to run per random seed. Each simulation may be a monte carlo.
     runtime_freq = 100  # Interval at which to print runtime details for each random seed
     decision_var_range = [[-2, 1], [0, 100], [-2, 1], [0, 1]]
-    epsilon_list = [0.01, 0.01, 0.05e9, 0.01*total_urban_demand, 0.01*total_ag_demand, 5, 0.25, 0.25, 1]  # Borg epsilon values for each objective
+    epsilon_list = [0.01, 0.01, 0.05e9, 0.01 * total_urban_demand, 0.01 * total_ag_demand, 5, 0.25, 0.25,
+                    1]  # Borg epsilon values for each objective
 
     # Where to save seed and runtime files
     main_output_file_dir = 'C:\\Users\\danny\\Pywr projects\\MAIPO_PYWR\\outputs\\first_optimization_attempts'  # Specify location of output files for different seeds
@@ -1765,8 +1828,7 @@ def Op_Sys_Folder_Operator():
 
     return os_fold_op
 
-
-#%% practice running
+# %% practice running
 # num_k = 1  # number of levels in policy tree
 # num_DP = 7  # number of decision periods
 #
