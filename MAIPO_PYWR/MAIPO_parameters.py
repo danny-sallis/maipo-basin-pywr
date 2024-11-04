@@ -1,8 +1,41 @@
-from pywr.parameters import IndexParameter, Parameter, load_parameter
-from pywr.recorders import Recorder, load_recorder, NodeRecorder, NumpyArrayNodeRecorder, AggregatedRecorder
-from pywr.recorders.events import EventRecorder, EventDurationRecorder
-import numpy as np
+# from pywr.parameters import IndexParameter, Parameter, load_parameter
+# from pywr.recorders import Recorder, load_recorder, NodeRecorder, NumpyArrayNodeRecorder, AggregatedRecorder
+# from pywr.recorders.events import EventRecorder, EventDurationRecorder
+# import numpy as np
+# import pandas
+
+
+import datetime
+import pandas as pd
+import tables
 import pandas
+import numpy as np
+import matplotlib.pyplot as plt
+import plotly.express as px
+from plotly.subplots import make_subplots
+import plotly.graph_objects as go
+import os
+import json
+import warnings
+import marshal, ujson as json
+#from platypus import Problem, Real
+#from pyborg import BorgMOEA
+
+# pywr imports
+from pywr.optimisation import *
+from pywr.parameters._thresholds import ParameterThresholdParameter, StorageThresholdParameter
+from pywr.recorders import DeficitFrequencyNodeRecorder, TotalDeficitNodeRecorder, MeanFlowNodeRecorder, \
+    NumpyArrayParameterRecorder, RollingMeanFlowNodeRecorder
+from pywr.model import Model
+from pywr.recorders import TablesRecorder, Recorder
+from pywr.core import Timestepper, Scenario, Node, ConstantParameter
+from pywr.core import *
+from pywr.parameters import *
+from pywr.dataframe_tools import *
+from pywr.parameters import IndexParameter, Parameter, load_parameter
+from pywr.recorders import Recorder, load_recorder, NodeRecorder, AggregatedRecorder, ParameterRecorder
+from pywr.recorders.events import EventRecorder, EventDurationRecorder
+from pywr.notebook import *
 
 class FakeYearIndexParameter(IndexParameter):
     """
@@ -142,6 +175,506 @@ class AccumulatedIndexedArrayParameter(Parameter):
         parameters = [load_parameter(model, parameter_data) for parameter_data in parameters]
         return cls(model, index_parameter, parameters, **data)
 AccumulatedIndexedArrayParameter.register()
+
+
+
+class IndicatorParameter(Parameter):
+    """
+    Parameter that combines others into a single "indicator" to use with indicator control curves
+    """
+    def __init__(self, model, indicator_list, indicator_value_getter, **kwargs):
+        """
+        Parameters
+        ----------
+        indicator_list : list of params and nodes
+            The curve we use is based on the values of these indicators
+        indicator_value_getter : function, takes in indicator_list, timestep, scenario_index
+            Returns the relevant value of the indicators
+            Can be a getter method, an aggregate of indicator properties, etc.
+        gen_control_curves : iterable of Parameter objects or single Parameter
+            The Parameter objects to use as a control curve(s).
+        """
+        super(IndicatorParameter, self).__init__(model, **kwargs)
+
+        if indicator_list is None:
+            raise ValueError("indicator_list is required")
+
+        for obj in indicator_list:
+            if isinstance(obj, Parameter):
+                self.children.add(obj)
+
+        self._indicator_list = indicator_list
+        self._indicator_value_getter = indicator_value_getter
+
+    def value(self, timestep, scenario_index):
+        indicator_list = self._indicator_list
+        indicator_value_getter = self._indicator_value_getter
+        return indicator_value_getter(indicator_list, timestep, scenario_index)
+
+    @classmethod
+    def load(cls, model, data):
+        """
+        TECHNICALLY, WE CAN ALLOW THE USER TO ADD A CODE STRING TO THE JSON FILE AND RUN ANY
+        OPERATION THEY WANT ON THE INDICATORS USING "eval" OR "exec". THESE RAISE MAJOR
+        SECURITY CONCERNS THOUGH. I WILL NOT IMPLEMENT THIS FUNCTION FOR NOW AND ASSUME THE
+        USER WILL ONLY USE THIS PARAMETER WITH make_model AND NOT JSON
+
+        ONE OPTION TO MAKE IT EASIER TO USE AND WORK FOR JSON: CAN EXTEND AGGREGATED PARAMS
+        TO TAKE IN STORAGE NODES
+        """
+        raise AttributeError("IndicatorParameters can only be run with Python, not JSON")
+
+class BaseIndicatorControlCurveParameter(Parameter):
+    """
+    Generalized base class for all Parameters that rely on the indicator containing a control_curve Parameter
+    """
+    def __init__(self, model, indicator, control_curves, **kwargs):
+        """
+        Parameters
+        ----------
+        indicator : Parameter
+            The indicator we use to choose which control curve to use
+        control_curves : iterable of Parameter objects or single Parameter
+            The Parameter objects to use as a control curve(s).
+        """
+        super(BaseIndicatorControlCurveParameter, self).__init__(model, **kwargs)
+        if indicator is None:
+            raise ValueError("indicator is required")
+        self.children.add(indicator)
+        for control_curve in control_curves:
+            self.children.add(control_curve)
+        self._indicator = indicator
+        self._control_curves = control_curves
+
+    @property
+    def control_curves(self):
+        return self._control_curves
+
+    @control_curves.setter
+    def control_curves(self, control_curves):
+        # Accept a single Parameter and convert to a list internally
+        if isinstance(control_curves, Parameter):
+            control_curves = [control_curves]
+
+        # remove existing control curves (if any)
+        if self._control_curves is not None:
+            for control_curve in self._control_curves:
+                control_curve.parents.remove(self)
+
+        _new_control_curves = []
+        for control_curve in control_curves:
+            # Accept numeric inputs and convert to `ConstantParameter`
+            if isinstance(control_curve, (float, int)):
+                control_curve = ConstantParameter(self.model, control_curve)
+
+            control_curve.parents.add(self)
+            _new_control_curves.append(control_curve)
+        self._control_curves = list(_new_control_curves)
+
+    @property
+    def indicator(self):
+        return self._indicator
+
+    @indicator.setter
+    def indicator(self, value):
+        if not isinstance(value, IndicatorParameter):
+            raise ValueError("Please use an IndicatorParameter")
+        self._indicator = value
+
+    @classmethod
+    def _load_control_curves(cls, model: object, data: object) -> object:
+        """ Private class method to load gen control curve data from dict. """
+
+        control_curves = []
+        if 'control_curve' in data:
+            control_curves.append(load_parameter(model, data.pop('control_curve')))
+        elif 'control_curves' in data:
+            for pdata in data.pop('control_curves'):
+                control_curves.append(load_parameter(model, pdata))
+        return control_curves
+
+    @classmethod
+    def _load_indicator(cls, model, data):
+        """ Private class method to load indicator from dict. """
+
+        indicator = data.pop('indicator')
+        if not isinstance(indicator, Parameter):
+            raise ValueError("Please use a Parameter as the indicator")
+        indicator = load_parameter(model, data.pop('indicator'))
+        return indicator
+
+
+BaseIndicatorControlCurveParameter.register()
+
+
+class IndicatorControlCurveParameter(BaseIndicatorControlCurveParameter):
+    """ A generic multi-levelled generalized control curve Parameter.
+
+     This parameter can be used to return different values when an indicator list's current
+      value is different relative to predefined control curves.
+     By default this parameter returns an integer sequence from zero if the first control curve
+      is passed, and incrementing by one for each control curve (or "level") the inidcator value
+      is below.
+
+    Parameters
+    ----------
+    indicator : Parameter
+        Used to determine which control curve to use
+    control_curves : `float`, `int` or `Parameter` object, or iterable thereof
+        The position of the control curves. Internally `float` or `int` types are cast to
+        `ConstantParameter`. Multiple values correspond to multiple control curve positions.
+        These should be specified in descending order.
+    values : array_like or `None`, optional
+        The values to return if the indicator object is above the correspond control curve.
+        I.e. the first value is returned if the indicator value is above the first control curve,
+        and second value if above the second control curve, and so on. The length of `values`
+        must be one more than the length of `control_curves`.
+    parameters : iterable `Parameter` objects or `None`, optional
+        If `values` is `None` then `parameters` can specify a `Parameter` object to use at level
+        of the control curves. In the same way as `values` the first `Parameter` is used if
+        `Storage` is above the first control curve, and second `Parameter` if above the
+        second control curve, and so on.
+    variable_indices : iterable of ints, optional
+        A list of indices that correspond to items in `values` which are to be considered variables
+         when `self.is_variable` is True. This mechanism allows a subset of `values` to be variable.
+    lower_bounds, upper_bounds : array_like, optional
+        Bounds of the variables. The length must correspond to the length of `variable_indices`, i.e.
+         there are bounds for each index to be considered as a variable.
+
+    Notes
+    -----
+    If `values` and `parameters` are both `None`, the default, then `values` defaults to
+     a range of integers, starting at zero, one more than length of `control_curves`.
+
+    See also
+    --------
+    BaseIndicatorControlCurveParameter
+    """
+    def __init__(self, model, indicator, control_curves, values=None, parameters=None,
+                 variable_indices=None, upper_bounds=None, lower_bounds=None, **kwargs):
+        super(IndicatorControlCurveParameter, self).__init__(model, indicator, control_curves, **kwargs)
+        # Expected number of values is number of control curves plus one.
+        nvalues = len(self.control_curves) + 1
+        self.parameters = None
+        if values is not None:
+            if len(values) != nvalues:
+                raise ValueError('Length of values should be one more than the number of '
+                                 'control curves ({}).'.format(nvalues))
+            self.values = values
+        elif parameters is not None:
+            if len(parameters) != nvalues:
+                raise ValueError('Length of parameters should be one more than the number of '
+                                 'control curves ({}).'.format(nvalues))
+            self.parameters = list(parameters)
+            # Make sure these parameters depend on this parameter to ensure they are evaluated
+            # in the correct order.
+            for p in self.parameters:
+                p.parents.add(self)
+        else:
+            # No values or parameters given, default to sequence of integers
+            self.values = np.arange(nvalues)
+
+        # Default values
+        self._upper_bounds = None
+        self._lower_bounds = None
+
+        if variable_indices is not None:
+            self.variable_indices = variable_indices
+            self.double_size = len(variable_indices)
+        else:
+            self.double_size = 0
+        # Bounds for use as a variable (i.e. when self.is_variable = True)
+        if upper_bounds is not None:
+            if self.values is None or variable_indices is None:
+                raise ValueError('Upper bounds can only be specified if `values` and `variable_indices` '
+                                 'is not `None`.')
+            if len(upper_bounds) != self.double_size:
+                raise ValueError('Length of upper_bounds should be equal to the length of `variable_indices` '
+                                 '({}).'.format(self.double_size))
+            self._upper_bounds = np.array(upper_bounds)
+
+        if lower_bounds is not None:
+            if self.values is None or variable_indices is None:
+                raise ValueError('Lower bounds can only be specified if `values` and `variable_indices` '
+                                 'is not `None`.')
+            if len(lower_bounds) != self.double_size:
+                raise ValueError('Length of lower_bounds should be equal to the length of `variable_indices` '
+                                 '({}).'.format(self.double_size))
+            self._lower_bounds = np.array(lower_bounds)
+
+        self.children.add(indicator)
+        for control_curve in control_curves:
+            self.children.add(control_curve)
+
+    @property
+    def values(self):
+        return np.asarray(self._values)
+
+    @values.setter
+    def values(self, values):
+        self._values = np.asarray(values, dtype=np.float64)
+
+    @property
+    def variable_indices(self):
+        return np.array(self._variable_indices)
+
+    @variable_indices.setter
+    def variable_indices(self, values):
+            self._variable_indices = np.array(values, dtype=np.int32)
+
+    @classmethod
+    def load(cls, model, data):
+        control_curves = super(IndicatorControlCurveParameter, cls)._load_control_curves(model, data)
+        indicator = super(IndicatorControlCurveParameter, cls)._load_indicator(model, data)
+
+        parameters = None
+        values = None
+        if 'values' in data:
+            values = load_parameter_values(model, data)
+        elif 'parameters' in data:
+            # Load parameters
+            parameters_data = data.pop('parameters')
+            parameters = []
+            for pdata in parameters_data:
+                parameters.append(load_parameter(model, pdata))
+
+        return cls(model, indicator, control_curves, values=values, parameters=parameters, **data)
+
+    def value(self, ts, scenario_index):
+        indicator = self.indicator
+        indicator_value = indicator.value(ts, scenario_index)
+
+        # Assumes control_curves is sorted highest to lowest
+        for j, cc_param in enumerate(self.control_curves):
+            cc = cc_param.get_value(scenario_index)
+            # If level above control curve then return this level's value
+            if indicator_value >= cc:
+                if self.parameters is not None:
+                    param = self.parameters[j]
+                    return param.get_value(scenario_index)
+                else:
+                    return self._values[j]
+
+        if self.parameters is not None:
+            param = self.parameters[-1]
+            return param.get_value(scenario_index)
+        else:
+            return self._values[-1]
+
+    def set_double_variables(self, values):
+        if len(values) != len(self.variable_indices):
+            raise ValueError('Number of values must be the same as the number of variable_indices.')
+
+        if self.double_size != 0:
+            for i, v in zip(self.variable_indices, values):
+                self._values[i] = v
+
+    def get_double_variables(self):
+        arry = np.empty((len(self.variable_indices), ))
+        for i, j in enumerate(self.variable_indices):
+            arry[i] = self._values[j]
+        return arry
+
+    def get_double_lower_bounds(self):
+        return self._lower_bounds
+
+    def get_double_upper_bounds(self):
+        return self._upper_bounds
+
+
+IndicatorControlCurveParameter.register()
+
+
+class IndicatorControlCurveIndexParameter(IndexParameter):
+    """Multiple control curve holder which returns an index not a value
+
+    Parameters
+    ----------
+    indicator : `Parameter`
+    control_curves : iterable of `Parameter` instances or floats
+    """
+    def __init__(self, model, indicator, control_curves, **kwargs):
+        super(IndicatorControlCurveIndexParameter, self).__init__(model, **kwargs)
+        for control_curve in control_curves:
+            self.children.add(control_curve)
+        self.children.add(indicator)
+        self.indicator = indicator
+        self._control_curves = control_curves
+
+    @property
+    def control_curves(self):
+        return self._control_curves
+
+    @control_curves.setter
+    def control_curves(self, control_curves):
+        # Accept a single Parameter and convert to a list internally
+        if isinstance(control_curves, Parameter):
+            control_curves = [control_curves]
+
+        # remove existing control curves (if any)
+        if self._control_curves is not None:
+            for control_curve in self._control_curves:
+                control_curve.parents.remove(self)
+
+        _new_control_curves = []
+        for control_curve in control_curves:
+            # Accept numeric inputs and convert to `ConstantParameter`
+            if isinstance(control_curve, (float, int)):
+                control_curve = ConstantParameter(self.model, control_curve)
+
+            control_curve.parents.add(self)
+            _new_control_curves.append(control_curve)
+        self._control_curves = list(_new_control_curves)
+
+    def index(self, timestep, scenario_index):
+        """Returns the index of the first control curve the storage is above
+
+        The index is zero-based. For example, if only one control curve is
+        supplied then the index is either 0 (above) or 1 (below). For two
+        curves the index is either 0 (above both), 1 (in between), or 2 (below
+        both), and so on.
+        """
+        current_value = self.indicator.value(timestep, scenario_index)
+        index = len(self.control_curves)
+        for j, control_curve in enumerate(self.control_curves):
+            target_value = control_curve.get_value(scenario_index)
+            if current_value >= target_value:
+                index = j
+                break
+        return index
+
+    @classmethod
+    def load(cls, model, data):
+        indicator = load_parameter(model, data.pop("indicator"))
+        control_curves = [load_parameter(model, d) for d in data.pop("control_curves")]
+        return cls(model, indicator, control_curves, **data)
+
+
+IndicatorControlCurveIndexParameter.register()
+
+class DroughtStatusAggregationParameter(Parameter):
+    # Aggregates values of a dataframe (typically an indicator) over a time period to get a single value, used to determine
+    # whether to apply a policy such as buying contracts
+    # num_weeks is the number of weeks in the past we look (1 is most recent week only)
+
+    # DESCRIPTION FROM DATAFRAMEPARAMETER, TO MODIFY:
+    """Timeseries parameter with automatic alignment and resampling
+
+    Parameters
+    ----------
+    model : pywr.model.Model
+    dataframe : pandas.DataFrame or pandas.Series
+    scenario: pywr._core.Scenario (optional)
+    timestep_offset : int (default=0)
+        Optional offset to apply to the timestep look-up. This can be used to look forward (positive value) or
+        backward (negative value) in the dataset. The offset is applied to dataset after alignment and resampling.
+        If the offset takes the indexing out of the data bounds then the parameter will return the first or last
+        value available.
+    """
+
+    def __init__(self, model, dataframe, agg_func, num_weeks=1, scenario=None, timestep_offset=0, **kwargs):
+        super(DroughtStatusAggregationParameter, self).__init__(model, *kwargs)
+        self.dataframe = dataframe
+        self.agg_func = agg_func
+        self.num_weeks = num_weeks
+        self.scenario = scenario
+        self.timestep_offset = timestep_offset
+
+    def setup(self):
+        # i
+        super(DroughtStatusAggregationParameter, self).setup()
+        # align and resample the dataframe (function from pywr.dataframe_tools.py -- lines up indices with timestepper)
+        dataframe_resampled = align_and_resample_dataframe(self.dataframe, self.model.timestepper.datetime_index)
+        if dataframe_resampled.ndim == 1:
+            dataframe_resampled = pandas.DataFrame(dataframe_resampled)
+        # dataframe should now have the correct number of timesteps for the model
+        if len(dataframe_resampled) != len(self.model.timestepper):
+            raise ValueError("Aligning DataFrame failed with a different length compared with model timesteps.")
+        # check that if a 2D DataFrame is given that we also have a scenario assigned with it
+        if dataframe_resampled.ndim == 2 and dataframe_resampled.shape[1] > 1:
+            if self.scenario is None:
+                raise ValueError("Scenario must be given for a DataFrame input with multiple columns.")
+            if self.scenario.size != dataframe_resampled.shape[1]:
+                raise ValueError("Scenario size ({}) is different to the number of columns ({}) "
+                                 "in the DataFrame input.".format(self.scenario.size, dataframe_resampled.shape[1]))
+
+        if self.scenario is not None:
+            self._scenario_index = self.model.scenarios.get_scenario_index(self.scenario)
+            # if possible, only load the data required
+            scenario_indices = None
+            # Default to index that is just out of bounds to cause IndexError if something goes wrong
+            self._scenario_ids = np.ones(self.scenario.size, dtype=np.int32) * self.scenario.size
+
+            # Calculate the scenario indices to load dependning on how scenario combinations are defined.
+            if self.model.scenarios.user_combinations:
+                scenario_indices = set()
+                for user_combination in self.model.scenarios.user_combinations:
+                    scenario_indices.add(user_combination[self._scenario_index])
+                scenario_indices = sorted(list(scenario_indices))
+            elif self.scenario.slice:
+                scenario_indices = range(*self.scenario.slice.indices(self.scenario.slice.stop))
+            else:
+                # scenario is defined, but all data required
+                self._scenario_ids = None
+            if scenario_indices is not None:
+                # Now load only the required data
+                for n, i in enumerate(scenario_indices):
+                    self._scenario_ids[i] = n
+                dataframe_resampled = dataframe_resampled.iloc[:, scenario_indices]
+
+        self._values = dataframe_resampled.values.astype(np.float64)
+
+
+    # def minus1onexception(func):
+    #     def Inner_Function(*args, **kwargs):
+    #         try:
+    #             func(*args, **kwargs)
+    #         except Exception:
+    #             return -1
+    #
+    #     return Inner_Function
+    #
+    # @minus1onexception
+    def value(self, timestep, scenario_index):
+        # value
+        first_week = min(max(timestep.index + self.timestep_offset - (self.num_weeks - 1), 0), self._values.shape[0] - 1)
+        last_week = min(max(timestep.index + self.timestep_offset, 0), self._values.shape[0] - 1)
+        # j
+
+        if self.scenario is not None:
+            j = scenario_index.indices[self._scenario_index]
+            if self._scenario_ids is not None:
+                j = self._scenario_ids[j]
+            values = self._values[first_week:last_week + 1, j]
+        else:
+            values = self._values[first_week:last_week + 1, 0]
+
+        value = self.agg_func(values)
+        return value
+
+
+    @classmethod
+    def load(cls, model, data):
+        scenario = data.pop('scenario', None)
+        if scenario is not None:
+            scenario = model.scenarios[scenario]
+        timestep_offset = data.pop('timestep_offset', 0)
+        # This will consume all keyword arguments silently in pandas. I.e. don't rely on **data passing keywords
+        df = load_dataframe(model, data)
+        return cls(model, df, scenario=scenario, timestep_offset=timestep_offset, **data)
+
+
+DroughtStatusAggregationParameter.register()
+
+
+class DroughtStatusMinAggregationParameter(DroughtStatusAggregationParameter):
+    def __init__(self, model, dataframe, num_weeks=1, scenario=None, timestep_offset=0, **kwargs):
+        super(DroughtStatusMinAggregationParameter, self).__init__(model, dataframe, lambda x: np.min(x), num_weeks, scenario, timestep_offset, **kwargs)
+
+DroughtStatusMinAggregationParameter.register()
+
+
+
 
 class ReservoirCostRecorder (Recorder):
     """
