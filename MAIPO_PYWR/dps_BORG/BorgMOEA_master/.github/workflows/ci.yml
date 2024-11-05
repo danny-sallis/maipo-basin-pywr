@@ -1,0 +1,173 @@
+name: CI
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  test-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: 17
+          distribution: zulu
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get -y install octave liboctave-dev mpi mpich libmpich-dev libopenmpi-dev valgrind
+      - name: Compile borg.exe and examples
+        run: |
+          make
+      - name: Test borg.exe
+        run: |
+          ./borg.exe -h
+          ./borg.exe -n 10000 -v 11 -o 2 -e 0.01,0.01 python dtlz2.py
+      - name: Test serial example
+        run: |
+          ./dtlz2_serial.exe > output.txt
+          cat output.txt
+          
+          # Validate the output, including:
+          #   1. File contains > 0 rows with exactly fields per line (11 vars + 2 obj)
+          #   2. The objective values approximate the expected Pareto front
+          #   3. All results are non-dominated (first objective is sorted asc, so second object should be desc)
+          awk 'BEGIN {COUNT=0} {COUNT=COUNT+1; if (NF != 13) { print "Line", NR, ": Expected 13 values per line, found", NF; exit -1}} END {if (COUNT == 0) {print "File was empty"; exit -1}}' output.txt
+          awk '{print $12, $13}' output.txt | sort -g > objectives.txt
+          awk 'function abs(x){return ((x < 0.0) ? -x : x)} {if (abs($1^2 + $2^2 - 1.0) > 0.01) {print "Line", NR,": Objective values not near Pareto front (",$0,")\n"; exit -1}}' objectives.txt
+          awk 'NR==1 {val=$2} NR>1 {if ($2 >= val) {print "Line",NR,": Objective values not non-dominated (",$0,")\n"; exit -1}; val=$2}' objectives.txt
+      - name: Test advanced example
+        run: |
+          ./dtlz2_advanced.exe
+          cat output.txt
+      - name: Test with Valgrind (memcheck)
+        run: |
+          valgrind --error-exitcode=1 --tool=memcheck --leak-check=full ./dtlz2_serial.exe
+          valgrind --error-exitcode=1 --tool=memcheck --leak-check=full ./borg.exe -n 10000 -v 11 -o 2 -e 0.01,0.01 python dtlz2.py
+      - name: Compiled shared library
+        run: |
+          gcc -shared -fPIC -O3 -o libborg.so borg.c mt19937ar.c -lm
+      - name: Test Python plugin
+        run: |
+          cp libborg.so plugins/Python
+          cd plugins/Python
+          python example.py
+      - name: Test Java plugin
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(gh release view --repo MOEAFramework/MOEAFramework --json tagName --jq ".tagName" | grep -oEi '[0-9]+\.[0-9]+(\.[0-9]+)?')
+          echo "Latest MOEAFramework Release: ${VERSION}"
+          
+          wget https://github.com/MOEAFramework/MOEAFramework/releases/download/v${VERSION}/MOEAFramework-${VERSION}.tar.gz
+          tar -xzf MOEAFramework-${VERSION}.tar.gz
+          mkdir -p plugins/Java/lib
+          cp MOEAFramework-${VERSION}/lib/* plugins/Java/lib
+
+          cd plugins/Java
+          ./build_native.sh
+          ant run
+      - name: Test C# plugin (dotnet)
+        run: |
+          cp libborg.so plugins/C#/borg.dll
+          cd plugins/C#
+
+          echo "<Project Sdk=\"Microsoft.NET.Sdk\">" > Example.csproj
+          echo "  <PropertyGroup>" >> Example.csproj
+          echo "    <OutputType>Exe</OutputType>" >> Example.csproj
+          echo "    <TargetFramework>netcoreapp3.1</TargetFramework>" >> Example.csproj
+          echo "    <PublishSingleFile>true</PublishSingleFile>" >> Example.csproj
+          echo "    <SelfContained>true</SelfContained>" >> Example.csproj
+          echo "  </PropertyGroup>" >> Example.csproj
+          echo "  <Target Name=\"PostBuild\" AfterTargets=\"PostBuildEvent\">" >> Example.csproj
+          echo "    <Exec Command=\"cp &quot;borg.dll&quot; &quot;\$(TargetDir)/&quot;\" />" >> Example.csproj
+          echo "  </Target>" >> Example.csproj
+          echo "</Project>" >> Example.csproj
+
+          cat Example.csproj
+
+          dotnet build
+          bin/Debug/netcoreapp3.1/linux-x64/Example
+      - name: Test C# plugin (Mono)
+        run: |
+          cp libborg.so plugins/C#/borg.dll
+          cd plugins/C#
+
+          mcs -target:library BorgMOEA.cs
+          mcs -reference:BorgMOEA.dll Example.cs
+          mono Example.exe
+      - name: Test R plugin
+        run: |
+          cp libborg.so plugins/R
+          cd plugins/R
+
+          # Install rdyncall from source as it might not be available for the installed version of R
+          git clone https://github.com/cran/rdyncall
+          R CMD build rdyncall
+          sudo R CMD INSTALL rdyncall_*.tar.gz
+
+          Rscript example.R
+      - name: Test Matlab plugin (Octave)
+        run: |
+          cp libborg.so plugins/Matlab
+          cp borg.h plugins/Matlab
+          cd plugins/Matlab
+
+          mkoctfile -mex -DOCTAVE -L. -lborg -Wl,-rpath,\. nativeborg.cpp
+          octave --eval "[vars, objs] = borg(11, 2, 0, @DTLZ2, 10000, [0.01, 0.01])"
+      - name: Compile parallel code
+        run: |
+          make compile-parallel
+      - name: Test master-slave
+        run: |
+          lamboot
+          mpirun -np 2 --oversubscribe ./dtlz2_ms.exe
+          lamhalt
+      - name: Test multi-master
+        if: ${{ hashFiles('dtlz2_mm.exe') != '' }} # if the multi-master executable exists
+        run: |
+          lamboot
+          mpirun -np 3 --oversubscribe ./dtlz2_mm.exe
+          lamhalt
+      - name: Test Python MPI
+        run: |
+          cp libborg*.so plugins/Python
+          cd plugins/Python
+
+          lamboot
+          mpirun -np 2 --oversubscribe python mpi_example.py
+          lamhalt
+
+  test-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Compile borg.exe and examples (gcc)
+        run: |
+          make
+      - name: Test borg.exe
+        run: |
+          ./borg.exe -h
+          ./borg.exe -n 10000 -v 11 -o 2 -e 0.01,0.01 python dtlz2.py
+      - name: Test serial example
+        run: |
+          ./dtlz2_serial.exe
+      - name: Test advanced example
+        run: |
+          ./dtlz2_advanced.exe
+          cat output.txt
+      - name: Compile shared library (gcc)
+        run: |
+          gcc -shared -fPIC -O3 -o borg.dll borg.c mt19937ar.c -lm
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+      - name: Compile shared library (MSVC)
+        run: |
+          cl /LD /TP /DBORG_EXPORTS borg.c mt19937ar.c
+      - name: Test Python plugin
+        run: |
+          cp borg.dll plugins/Python
+          cd plugins/Python
+          python example.py

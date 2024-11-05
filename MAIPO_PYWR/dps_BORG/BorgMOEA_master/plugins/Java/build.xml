@@ -1,0 +1,60 @@
+<project default="jar">
+
+	<target name="clean">
+		<delete dir="build"/>
+	</target>
+
+	<target name="compile" depends="clean">
+		<mkdir dir="build"/>
+
+		<javac srcdir="src" destdir="build" includeantruntime="false">
+			<classpath>
+				<fileset dir="lib" />
+			</classpath>
+		</javac>
+
+		<copy todir="build">
+			<fileset dir="native"/>
+		</copy>
+		
+		<mkdir dir="build/META-INF" />
+		<mkdir dir="build/META-INF/services" />
+		<echo message="org.borgmoea.spi.BorgProvider" file="build/META-INF/services/org.moeaframework.core.spi.AlgorithmProvider" />
+	</target>
+
+	<target name="jar" depends="compile">
+		<jar destfile="borg.jar" basedir="build" />
+	</target>
+	
+	<target name="jar-full" depends="compile">
+		<unjar dest="build">
+			<fileset dir="lib">
+				<include name="jna-*.jar" />
+			</fileset>
+		</unjar>
+			
+		<jar destfile="borg.jar" basedir="build" />
+	</target>
+
+	<target name="run" depends="compile">
+		<java fork="true" classname="Example">
+			<classpath>
+				<fileset dir="lib" />
+				<pathelement path="build" />
+			</classpath>
+		</java>
+	</target>
+	
+	<target name="javadoc">
+		<mkdir dir="docs" />
+		
+		<javadoc packagenames="org.borgmoea.*" sourcepath="src" destdir="docs" windowtitle="Borg MOEA Java Wrapper">
+			<doctitle>Borg MOEA Java Wrapper</doctitle>
+			<bottom>Copyright 2014 David Hadka</bottom>
+			<classpath>
+				<fileset dir="lib" />
+			</classpath>
+		</javadoc>
+	</target>
+
+</project>
