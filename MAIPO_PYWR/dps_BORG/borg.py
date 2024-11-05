@@ -125,7 +125,10 @@ class Configuration:
                 return
         elif os.name == "nt":
             try:
-                Configuration.libborg = CDLL("./borg.dll")
+                print("trying it...")
+                print(os.getcwd())
+                Configuration.libborg = CDLL("C:\\Users\\danny\\Pywr projects\\MAIPO_PYWR\\dps_BORG\\BorgMOEA_master\\borg.dll")
+                print("DID IT!")
                 Configuration.libborg.BORG_Copyright
                 Configuration.stdcall = False
             except OSError:
@@ -133,7 +136,9 @@ class Configuration:
             except AttributeError:
                 # Not using __cdecl, try __stdcall instead
                 try:
-                    Configuration.libborg = WinDLL("./borg.dll")
+                    print("trying again")
+                    Configuration.libborg = WinDLL("C:\\Users\\danny\\Pywr projects\\MAIPO_PYWR\\dps_BORG\\BorgMOEA_master\\borg.dll")
+                    print("Really did it this time!")
                     Configuration.stdcall = True
                 except OSError:
                     return
