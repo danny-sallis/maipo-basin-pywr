@@ -31,7 +31,7 @@ program.
 Copyright 2013-2018 David Hadka
 Requires Python 3 or later
 """
-
+import faulthandler
 from ctypes import *
 import os
 import sys
@@ -83,8 +83,8 @@ class Configuration:
             Configuration.libc = CDLL(path)
         elif os.name == "posix":
             try:
-                #Configuration.libc = CDLL("libc.so.6")
-                Configuration.libc = CDLL("libc.dylib")
+                Configuration.libc = CDLL("/usr/lib/x86_64-linux-gnu/libc.so.6")
+                # Configuration.libc = CDLL("libc.dylib")
             except OSError:
                 return
         elif os.name == "nt" and cdll.msvcrt:
@@ -119,7 +119,7 @@ class Configuration:
                     Configuration.stdcall = True
         elif os.name == "posix":
             try:
-                Configuration.libborg = CDLL("./libborg.so")
+                Configuration.libborg = CDLL("/home/danny/FletcherLab/maipo-basin-pywr/MAIPO_PYWR/dps_BORG/BorgMOEA_master/libborg.so")
                 Configuration.stdcall = False
             except OSError:
                 return
@@ -183,8 +183,7 @@ class Configuration:
         Configuration.libborg.BORG_Copyright(Configuration.stdout)
 
     @staticmethod
-    def startMPI():
-        """ Initializes MPI to enable master-slave and multi-master Borg MOEA runs. """
+    def startMPI():# """ Initializes MPI to enable master-slave and multi-master Borg MOEA runs. """
         if Configuration.startedMPI:
             raise RuntimeError("MPI is already started")
 
@@ -196,10 +195,10 @@ class Configuration:
         except AttributeError:
             # The serial Borg MOEA C library is loaded; switch to parallel
             try:
-                Configuration.setBorgLibrary("./libborgmm.so")
+                Configuration.setBorgLibrary("/home/danny/FletcherLab/maipo-basin-pywr/MAIPO_PYWR/dps_BORG/BorgMOEA_master/libborgmm.so")
             except OSError:
                 try:
-                    Configuration.setBorgLibrary("./libborgms.so")
+                    Configuration.setBorgLibrary("/home/danny/FletcherLab/maipo-basin-pywr/MAIPO_PYWR/dps_BORG/BorgMOEA_master/libborgms.so")
                 except OSError:
                     raise OSError("Unable to locate the parallel Borg MOEA C library")
 
@@ -214,9 +213,14 @@ class Configuration:
         for i in range(len(sys.argv)):
             argv[i] = sys.argv[i].encode('utf-8')
 
+        faulthandler.enable()
+
         Configuration.libborg.BORG_Algorithm_ms_startup(
             cast(addressof(argc), POINTER(c_int)),
-            cast(addressof(argv), POINTER(CHARPP)))
+            cast(addressof(argv), POINTER(CHARPP))
+        )
+
+        print("hmm, made it past a scary part")
 
         Configuration.libborg.BORG_Algorithm_ms_run.restype = c_void_p
 
@@ -299,6 +303,7 @@ class Borg:
         directions          - The optimization direction (MINIMIZE or MAXIMIZE) for each objective
         """
 
+
         # Ensure the underlying library is available
         Configuration.check()
 
@@ -336,6 +341,7 @@ class Borg:
             self.setEpsilons(*epsilons)
         else:
             self.epsilonsAssigned = False
+
 
     def __del__(self):
         """ Deletes the underlying C objects. """

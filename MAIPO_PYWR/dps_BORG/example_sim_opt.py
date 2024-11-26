@@ -1,7 +1,10 @@
 # general package imports
+
+import sys
+sys.path.append("/home/danny/FletcherLab/maipo-basin-pywr")
+
 import numpy as np
 import pandas as pd
-# import pysedsim  # This is your simulation model
 import platform  # helps identify directory locations on different types of OS
 import sys
 
@@ -15,6 +18,8 @@ from pywr.recorders import DeficitFrequencyNodeRecorder, TotalDeficitNodeRecorde
     AggregatedRecorder
 # from MAIPO_searcher import *
 from pywr.dataframe_tools import *
+
+from MAIPO_PYWR.dps_BORG.borg import *
 
 from MAIPO_PYWR.MAIPO_parameters import *
 # from MAIPO_PYWR.dps_BORG.MAIPO_DPS import *
@@ -188,7 +193,7 @@ def make_model(contract_threshold_vals=-999999 * np.ones(num_DP), contract_actio
     # multiple usable drought_status parameters:
     # drought_status_single_day (uses just the first day of april/october)
     df = {
-        'url': 'C:\\Users\\danny\\Pywr projects\\MAIPO_PYWR\\data\\{}.csv'.format(indicator),  # 'data/SRI6.csv'
+        'url': './MAIPO_PYWR/data/{}.csv'.format(indicator),  # 'data/SRI6.csv'
         "parse_dates": True,
         "index_col": "Timestamp",
         "dayfirst": True}
@@ -215,7 +220,7 @@ def make_model(contract_threshold_vals=-999999 * np.ones(num_DP), contract_actio
     # WILL LIKELY HAVE TO BUILD FROM DATAFRAMEPARAMETER
     # MOST GENERAL -- COULD TRY TO MAKE FIRST!
     df = {
-        'url': 'C:\\Users\\danny\\Pywr projects\\MAIPO_PYWR\\data\\{}.csv'.format(indicator),  # 'data/SRI6.csv'
+        'url': './MAIPO_PYWR/data/{}.csv'.format(indicator),  # 'data/SRI6.csv'
         "parse_dates": True,
         "index_col": "Timestamp",
         "dayfirst": True}
@@ -406,9 +411,10 @@ def make_model(contract_threshold_vals=-999999 * np.ones(num_DP), contract_actio
     # )
     # paramIndex["demand_restriction_factor"] = model.parameters.__len__() - 1
 
+    print("It worked!")
     # flow_Yeso
     df = {
-        'url': 'C:\\Users\\danny\\Pywr projects\\MAIPO_PYWR\\data\\YESO.csv',
+        'url': './MAIPO_PYWR/data/YESO.csv',
         "parse_dates": True,
         "index_col": 0,
         "dayfirst": True}
@@ -423,7 +429,7 @@ def make_model(contract_threshold_vals=-999999 * np.ones(num_DP), contract_actio
 
     # flow_Maipo
     df = {
-        'url': 'C:\\Users\\danny\\Pywr projects\\MAIPO_PYWR\\data\\MAIPO.csv',
+        'url': './MAIPO_PYWR/data/MAIPO.csv',
         "parse_dates": True,
         "index_col": 0,
         "dayfirst": True}
@@ -438,7 +444,7 @@ def make_model(contract_threshold_vals=-999999 * np.ones(num_DP), contract_actio
 
     # flow_Colorado
     df = {
-        'url': 'C:\\Users\\danny\\Pywr projects\\MAIPO_PYWR\\data\\COLORADO.csv',
+        'url': './MAIPO_PYWR/data/COLORADO.csv',
         "parse_dates": True,
         "index_col": 0,
         "dayfirst": True}
@@ -453,7 +459,7 @@ def make_model(contract_threshold_vals=-999999 * np.ones(num_DP), contract_actio
 
     # flow_Volcan
     df = {
-        'url': 'C:\\Users\\danny\\Pywr projects\\MAIPO_PYWR\\data\\VOLCAN.csv',
+        'url': './MAIPO_PYWR/data/VOLCAN.csv',
         "parse_dates": True,
         "index_col": 0,
         "dayfirst": True}
@@ -468,7 +474,7 @@ def make_model(contract_threshold_vals=-999999 * np.ones(num_DP), contract_actio
 
     # flow_Laguna Negra
     df = {
-        'url': 'C:\\Users\\danny\\Pywr projects\\MAIPO_PYWR\\data\\LAGUNANEGRA.csv',
+        'url': './MAIPO_PYWR/data/LAGUNANEGRA.csv',
         "parse_dates": True,
         "index_col": 0,
         "dayfirst": True}
@@ -483,7 +489,7 @@ def make_model(contract_threshold_vals=-999999 * np.ones(num_DP), contract_actio
 
     # flow_Maipo extra
     df = {
-        'url': 'C:\\Users\\danny\\Pywr projects\\MAIPO_PYWR\\data\\MAIPOEXTRA.csv',
+        'url': './MAIPO_PYWR/data/MAIPOEXTRA.csv',
         "parse_dates": True,
         "index_col": 0,
         "dayfirst": True}
@@ -498,7 +504,7 @@ def make_model(contract_threshold_vals=-999999 * np.ones(num_DP), contract_actio
 
     # aux_acueductoln
     df = {
-        'url': 'C:\\Users\\danny\\Pywr projects\\MAIPO_PYWR\\data\\Extra data.csv',
+        'url': './MAIPO_PYWR/data/Extra data.csv',
         "parse_dates": True,
         "index_col": 0,
         "dayfirst": True,
@@ -514,7 +520,7 @@ def make_model(contract_threshold_vals=-999999 * np.ones(num_DP), contract_actio
 
     # aux_extraccionln
     df = {
-        'url': 'C:\\Users\\danny\\Pywr projects\\MAIPO_PYWR\\data\\Extra data.csv',
+        'url': './MAIPO_PYWR/data/Extra data.csv',
         "parse_dates": True,
         "index_col": 0,
         "dayfirst": True,
@@ -530,7 +536,7 @@ def make_model(contract_threshold_vals=-999999 * np.ones(num_DP), contract_actio
 
     # aux_acueductoyeso
     df = {
-        'url': 'C:\\Users\\danny\\Pywr projects\\MAIPO_PYWR\\data\\Extra data.csv',
+        'url': './MAIPO_PYWR/data/Extra data.csv',
         "parse_dates": True,
         "index_col": 0,
         "dayfirst": True,
@@ -546,7 +552,7 @@ def make_model(contract_threshold_vals=-999999 * np.ones(num_DP), contract_actio
 
     # aux_filtraciones
     df = {
-        'url': 'C:\\Users\\danny\\Pywr projects\\MAIPO_PYWR\\data\\Extra data.csv',
+        'url': './MAIPO_PYWR/data/Extra data.csv',
         "parse_dates": True,
         "index_col": 0,
         "dayfirst": True,
@@ -562,7 +568,7 @@ def make_model(contract_threshold_vals=-999999 * np.ones(num_DP), contract_actio
 
     # threshold_laobra
     df = {
-        'url': 'C:\\Users\\danny\\Pywr projects\\MAIPO_PYWR\\data\\Extra data.csv',
+        'url': './MAIPO_PYWR/data/Extra data.csv',
         "parse_dates": True,
         "index_col": 0,
         "dayfirst": True,
@@ -578,7 +584,7 @@ def make_model(contract_threshold_vals=-999999 * np.ones(num_DP), contract_actio
 
     # discount_rate_factor
     df = {
-        'url': 'C:\\Users\\danny\\Pywr projects\\MAIPO_PYWR\\data\\Extra data.csv',
+        'url': './MAIPO_PYWR/data/Extra data.csv',
         "parse_dates": True,
         "index_col": 0,
         "dayfirst": True,
@@ -594,7 +600,7 @@ def make_model(contract_threshold_vals=-999999 * np.ones(num_DP), contract_actio
 
     # descarga_adicional
     df = {
-        'url': 'C:\\Users\\danny\\Pywr projects\\MAIPO_PYWR\\data\\Extra data.csv',
+        'url': './MAIPO_PYWR/data/Extra data.csv',
         "parse_dates": True,
         "index_col": 0,
         "dayfirst": True,
@@ -610,7 +616,7 @@ def make_model(contract_threshold_vals=-999999 * np.ones(num_DP), contract_actio
 
     # estacionalidad_distribucion
     df = {
-        'url': 'C:\\Users\\danny\\Pywr projects\\MAIPO_PYWR\\data\\Extra data.csv',
+        'url': './MAIPO_PYWR/data/Extra data.csv',
         "parse_dates": True,
         "index_col": 0,
         "dayfirst": True,
@@ -627,7 +633,7 @@ def make_model(contract_threshold_vals=-999999 * np.ones(num_DP), contract_actio
 
     # demanda_PT1
     df = {
-        'url': 'C:\\Users\\danny\\Pywr projects\\MAIPO_PYWR\\data\\Extra data.csv',
+        'url': './MAIPO_PYWR/data/Extra data.csv',
         "parse_dates": True,
         "index_col": 0,
         "dayfirst": True,
@@ -704,7 +710,7 @@ def make_model(contract_threshold_vals=-999999 * np.ones(num_DP), contract_actio
 
     # demanda_PT2
     df = {
-        'url': 'C:\\Users\\danny\\Pywr projects\\MAIPO_PYWR\\data\\Extra data.csv',
+        'url': './MAIPO_PYWR/data/Extra data.csv',
         "parse_dates": True,
         "index_col": 0,
         "dayfirst": True,
@@ -1719,9 +1725,10 @@ def Optimization():
 
     '''
 
-    import MAIPO_PYWR.dps_BORG.BorgMOEA_master.plugins.Python.borg as bg  # Import borg wrapper
+    # import MAIPO_PYWR.dps_BORG.borg as bg  # Import borg wrapper
+    # import MAIPO_PYWR.dps_BORG.BorgMOEA_master.plugins.Python.borg as bg  # Import borg wrapper
 
-    parallel = 0  # 1= master-slave (parallel), 0=serial
+    parallel = 1  # 1= master-slave (parallel), 0=serial
 
     # List of objectives:
     # failure_frequency_PT1 (minimize)
@@ -1740,7 +1747,7 @@ def Optimization():
     # demand_threshold_vals
     # demand_action_vals
 
-    data = pd.read_csv("C:\\Users\\danny\\Pywr projects\\MAIPO_PYWR\\data\\Extra data.csv")
+    data = pd.read_csv("/home/danny/FletcherLab/maipo-basin-pywr/MAIPO_PYWR/data/Extra data.csv")
     urban_demand = data["PT1"]
     num_weeks = len(urban_demand)
     total_urban_demand = urban_demand.sum()
@@ -1762,26 +1769,25 @@ def Optimization():
                     1]  # Borg epsilon values for each objective
 
     # Where to save seed and runtime files
-    main_output_file_dir = 'C:\\Users\\danny\\Pywr projects\\MAIPO_PYWR\\outputs\\first_optimization_attempts'  # Specify location of output files for different seeds
+    main_output_file_dir = './MAIPO_PYWR/outputs/first_optimization_attempts'  # Specify location of output files for different seeds
     os_fold = Op_Sys_Folder_Operator()  # Folder operator for operating system
     output_location = main_output_file_dir + os_fold + 'sets'
 
     # If using master-slave, start MPI. Only do once.
     if parallel == 1:
-        bg.Configuration.startMPI()  # start parallelization with MPI
+        Configuration.startMPI()  # start parallelization with MPI
 
     # Loop through seeds, calling borg.solve (serial) or borg.solveMPI (parallel) each time
     for j in range(nSeeds):
         # Instantiate borg class, then set bounds, epsilon values, and file output locations
-        borg = bg.Borg(num_dec_vars, n_objs, n_constrs, Simulation_Caller)
+        borg = Borg(num_dec_vars, n_objs, n_constrs, Simulation_Caller)
         borg.setBounds(*decision_var_range)  # Set decision variable bounds
         borg.setEpsilons(*epsilon_list)  # Set epsilon values
         # Runtime file path for each seed:
-        runtime_filename = main_output_file_dir + os_fold + 'runtime_file_seed_' + str(j + 1) + '.runtime'
+        runtime_filename = bytes(main_output_file_dir + os_fold + 'runtime_file_seed_' + str(j + 1) + '%d.runtime', 'utf-8')
         if parallel == 1:
             # Run parallel Borg
-            result = borg.solveMPI(maxEvaluations='num_func_evals', runtime=runtime_filename, frequency=runtime_freq)
-
+            result = borg.solveMPI(maxEvaluations=num_func_evals, runtime=runtime_filename)#, frequency=runtime_freq)
         if parallel == 0:
             # Run serial Borg
             result = borg.solve({"maxEvaluations": num_func_evals, "runtimeformat": 'borg', "frequency": runtime_freq,
@@ -1824,7 +1830,7 @@ def Optimization():
             print("Seed {} complete".format(j))
 
     if parallel == 1:
-        bg.Configuration.stopMPI()  # stop parallel function evaluation process
+        Configuration.stopMPI()  # stop parallel function evaluation process
 
 
 def Op_Sys_Folder_Operator():
@@ -1844,8 +1850,14 @@ def Op_Sys_Folder_Operator():
 
     return os_fold_op
 
+
+
+
+
+
 #%% practice running
 # num_k = 1  # number of levels in policy tree
+# num_DP = 7  # number of decision periods
 # num_DP = 7  # number of decision periods
 #
 # thresh = np.ones(num_DP) * -0.84
@@ -1861,4 +1873,3 @@ def Op_Sys_Folder_Operator():
 # })
 
 Optimization()
-

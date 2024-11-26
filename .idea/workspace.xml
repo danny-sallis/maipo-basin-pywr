@@ -5,9 +5,30 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="c77d8d21-a15a-4b97-98ae-09cf3bdec7a2" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/MAIPO_PYWR/dps_BORG/libborgms.so" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/Pywr projects.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/Pywr projects.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/MAIPO_PYWR/dps_BORG/BorgMOEA_master/plugins/Python/borg.py" beforeDir="false" afterPath="$PROJECT_DIR$/MAIPO_PYWR/dps_BORG/BorgMOEA_master/plugins/Python/borg.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/MAIPO_PYWR/dps_BORG/borg.py" beforeDir="false" afterPath="$PROJECT_DIR$/MAIPO_PYWR/dps_BORG/borg.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/MAIPO_PYWR/dps_BORG/example_sim_opt.py" beforeDir="false" afterPath="$PROJECT_DIR$/MAIPO_PYWR/dps_BORG/example_sim_opt.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/MAIPO_PYWR/dps_BORG/example_sim_opt_caller.py" beforeDir="false" afterPath="$PROJECT_DIR$/MAIPO_PYWR/dps_BORG/example_sim_opt_caller.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/MAIPO_PYWR/dps_BORG/libborg.so" beforeDir="false" afterPath="$PROJECT_DIR$/MAIPO_PYWR/dps_BORG/libborg.so" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/MAIPO_PYWR/outputs/first_optimization_attempts/runtime_file_seed_1.runtime" beforeDir="false" afterPath="$PROJECT_DIR$/MAIPO_PYWR/outputs/first_optimization_attempts/runtime_file_seed_1.runtime" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/MAIPO_PYWR/outputs/first_optimization_attempts/runtime_file_seed_2.runtime" beforeDir="false" afterPath="$PROJECT_DIR$/MAIPO_PYWR/outputs/first_optimization_attempts/runtime_file_seed_2.runtime" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/MAIPO_PYWR/outputs/first_optimization_attempts/runtime_file_seed_3.runtime" beforeDir="false" afterPath="$PROJECT_DIR$/MAIPO_PYWR/outputs/first_optimization_attempts/runtime_file_seed_3.runtime" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/MAIPO_PYWR/outputs/first_optimization_attempts/runtime_file_seed_4.runtime" beforeDir="false" afterPath="$PROJECT_DIR$/MAIPO_PYWR/outputs/first_optimization_attempts/runtime_file_seed_4.runtime" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/MAIPO_PYWR/outputs/first_optimization_attempts/runtime_file_seed_5.runtime" beforeDir="false" afterPath="$PROJECT_DIR$/MAIPO_PYWR/outputs/first_optimization_attempts/runtime_file_seed_5.runtime" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/MAIPO_PYWR/outputs/first_optimization_attempts/sets/Borg_DPS_PySedSim1.set" beforeDir="false" afterPath="$PROJECT_DIR$/MAIPO_PYWR/outputs/first_optimization_attempts/sets/Borg_DPS_PySedSim1.set" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/MAIPO_PYWR/outputs/first_optimization_attempts/sets/Borg_DPS_PySedSim2.set" beforeDir="false" afterPath="$PROJECT_DIR$/MAIPO_PYWR/outputs/first_optimization_attempts/sets/Borg_DPS_PySedSim2.set" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/MAIPO_PYWR/outputs/first_optimization_attempts/sets/Borg_DPS_PySedSim3.set" beforeDir="false" afterPath="$PROJECT_DIR$/MAIPO_PYWR/outputs/first_optimization_attempts/sets/Borg_DPS_PySedSim3.set" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/MAIPO_PYWR/outputs/first_optimization_attempts/sets/Borg_DPS_PySedSim4.set" beforeDir="false" afterPath="$PROJECT_DIR$/MAIPO_PYWR/outputs/first_optimization_attempts/sets/Borg_DPS_PySedSim4.set" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/MAIPO_PYWR/outputs/first_optimization_attempts/sets/Borg_DPS_PySedSim5.set" beforeDir="false" afterPath="$PROJECT_DIR$/MAIPO_PYWR/outputs/first_optimization_attempts/sets/Borg_DPS_PySedSim5.set" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/MAIPO_PYWR/outputs/first_optimization_attempts/sets/Borg_DPS_PySedSim_no_vars1.set" beforeDir="false" afterPath="$PROJECT_DIR$/MAIPO_PYWR/outputs/first_optimization_attempts/sets/Borg_DPS_PySedSim_no_vars1.set" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/MAIPO_PYWR/outputs/first_optimization_attempts/sets/Borg_DPS_PySedSim_no_vars2.set" beforeDir="false" afterPath="$PROJECT_DIR$/MAIPO_PYWR/outputs/first_optimization_attempts/sets/Borg_DPS_PySedSim_no_vars2.set" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/MAIPO_PYWR/outputs/first_optimization_attempts/sets/Borg_DPS_PySedSim_no_vars3.set" beforeDir="false" afterPath="$PROJECT_DIR$/MAIPO_PYWR/outputs/first_optimization_attempts/sets/Borg_DPS_PySedSim_no_vars3.set" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/MAIPO_PYWR/outputs/first_optimization_attempts/sets/Borg_DPS_PySedSim_no_vars4.set" beforeDir="false" afterPath="$PROJECT_DIR$/MAIPO_PYWR/outputs/first_optimization_attempts/sets/Borg_DPS_PySedSim_no_vars4.set" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/MAIPO_PYWR/outputs/first_optimization_attempts/sets/Borg_DPS_PySedSim_no_vars5.set" beforeDir="false" afterPath="$PROJECT_DIR$/MAIPO_PYWR/outputs/first_optimization_attempts/sets/Borg_DPS_PySedSim_no_vars5.set" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -32,45 +53,48 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Python.MAIPO_DPS.executor": "Run",
-    "Python.RegNN.executor": "Run",
-    "Python.RegNN_tf.executor": "Run",
-    "Python.SPI_calculator_v2.executor": "Run",
-    "Python.borg.executor": "Run",
-    "Python.drought_status_scratch.executor": "Run",
-    "Python.example_sim_opt.executor": "Run",
-    "Python.example_sim_opt_caller.executor": "Debug",
-    "Python.graphs.executor": "Run",
-    "Python.scratch_1.executor": "Run",
-    "Python.threshold_graphs.executor": "Run",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
-    "ignore.virus.scanning.warn.message": "true",
-    "last_opened_file_path": "C:/Users/danny/Pywr projects/MAIPO_PYWR/dps_BORG",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "settings.editor.selected.configurable": "project.propVCSSupport.DirectoryMappings",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Python.MAIPO_DPS.executor&quot;: &quot;Run&quot;,
+    &quot;Python.RegNN.executor&quot;: &quot;Run&quot;,
+    &quot;Python.RegNN_tf.executor&quot;: &quot;Run&quot;,
+    &quot;Python.SPI_calculator_v2.executor&quot;: &quot;Run&quot;,
+    &quot;Python.borg.executor&quot;: &quot;Run&quot;,
+    &quot;Python.drought_status_scratch.executor&quot;: &quot;Run&quot;,
+    &quot;Python.example_sim_opt.executor&quot;: &quot;Run&quot;,
+    &quot;Python.example_sim_opt_caller.executor&quot;: &quot;Run&quot;,
+    &quot;Python.graphs.executor&quot;: &quot;Run&quot;,
+    &quot;Python.scratch_1.executor&quot;: &quot;Run&quot;,
+    &quot;Python.threshold_graphs.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/home/danny/FletcherLab/maipo-basin-pywr/MAIPO_PYWR/dps_BORG/BorgMOEA_master&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.lookFeel&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   },
-  "keyToStringList": {
-    "com.intellij.ide.scratch.ScratchImplUtil$2/New Scratch File": [
-      "Python"
+  &quot;keyToStringList&quot;: {
+    &quot;com.intellij.ide.scratch.ScratchImplUtil$2/New Scratch File&quot;: [
+      &quot;Python&quot;
     ]
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/MAIPO_PYWR/dps_BORG/BorgMOEA_master" />
+      <recent name="$PROJECT_DIR$/MAIPO_PYWR/dps_BORG" />
       <recent name="C:\Users\danny\Pywr projects\MAIPO_PYWR\dps_BORG" />
       <recent name="C:\Users\danny\Pywr projects" />
       <recent name="C:\Users\danny\Pywr projects\MAIPO_PYWR" />
-      <recent name="C:\Users\danny\Pywr projects\MAIPO_PYWR\data" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/MAIPO_PYWR/dps_BORG" />
       <recent name="C:\Users\danny\Pywr projects\MAIPO_PYWR\dps_BORG" />
     </key>
   </component>
@@ -131,8 +155,8 @@
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-js-predefined-1d06a55b98c1-0b3e54e931b4-JavaScript-PY-241.17890.14" />
-        <option value="bundled-python-sdk-5b207ade9991-7e9c3bbb6e34-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-241.17890.14" />
+        <option value="bundled-js-predefined-d6986cc7102b-5c90d61e3bab-JavaScript-PY-242.23726.102" />
+        <option value="bundled-python-sdk-5e1850174b45-399fe30bd8c1-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-242.23726.102" />
       </set>
     </attachedChunks>
   </component>
@@ -179,23 +203,46 @@
       <workItem from="1730627263430" duration="85000" />
       <workItem from="1730627515871" duration="5386000" />
       <workItem from="1730713478593" duration="6130000" />
+      <workItem from="1731318773827" duration="5806000" />
+      <workItem from="1731397800852" duration="1078000" />
+      <workItem from="1731399014851" duration="1640000" />
+      <workItem from="1731699761144" duration="53000" />
+      <workItem from="1731830254140" duration="2013000" />
+      <workItem from="1731832504227" duration="2850000" />
+      <workItem from="1731835463245" duration="1335000" />
+      <workItem from="1731836819868" duration="39000" />
+      <workItem from="1731836872521" duration="6542000" />
+      <workItem from="1731884317760" duration="14792000" />
+      <workItem from="1732605799667" duration="2159000" />
     </task>
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
   </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$APPLICATION_HOME_DIR$/plugins/python-ce/helpers/pydev/_pydev_bundle/pydev_import_hook.py</url>
+          <option name="timeStamp" value="1" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
+  </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/Pywr_projects$borg.coverage" NAME="borg Coverage Results" MODIFIED="1725779396529" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/MAIPO_PYWR/dps_BORG" />
-    <SUITE FILE_PATH="coverage/Pywr_projects$graphs.coverage" NAME="graphs Coverage Results" MODIFIED="1724951299056" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/MAIPO_PYWR/dps_BORG" />
     <SUITE FILE_PATH="coverage/Pywr_projects$MAIPO_DPS.coverage" NAME="MAIPO_DPS Coverage Results" MODIFIED="1727936848069" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/MAIPO_PYWR/dps_BORG" />
+    <SUITE FILE_PATH="coverage/Pywr_projects$example_sim_opt_caller.coverage" NAME="example_sim_opt_caller Coverage Results" MODIFIED="1725779939457" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/MAIPO_PYWR/dps_BORG" />
+    <SUITE FILE_PATH="coverage/Pywr_projects$drought_status_scratch.coverage" NAME="drought_status_scratch Coverage Results" MODIFIED="1727937837733" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/MAIPO_PYWR/dps_BORG" />
+    <SUITE FILE_PATH="coverage/Pywr_projects$example_sim_opt.coverage" NAME="example_sim_opt Coverage Results" MODIFIED="1727937672141" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/MAIPO_PYWR/dps_BORG" />
     <SUITE FILE_PATH="coverage/Pywr_projects$scratch_1.coverage" NAME="scratch_1 Coverage Results" MODIFIED="1730628010058" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$APPLICATION_CONFIG_DIR$/scratches" />
+    <SUITE FILE_PATH="coverage/Pywr_projects$graphs.coverage" NAME="graphs Coverage Results" MODIFIED="1724951299056" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/MAIPO_PYWR/dps_BORG" />
+    <SUITE FILE_PATH="coverage/maipo_basin_pywr$example_sim_opt.coverage" NAME="example_sim_opt Coverage Results" MODIFIED="1731883817079" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/MAIPO_PYWR/dps_BORG" />
+    <SUITE FILE_PATH="coverage/maipo_basin_pywr$example_sim_opt_caller.coverage" NAME="example_sim_opt_caller Coverage Results" MODIFIED="1731884885449" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/MAIPO_PYWR/dps_BORG" />
+    <SUITE FILE_PATH="coverage/Pywr_projects$SPI_calculator_v2.coverage" NAME="SPI_calculator_v2 Coverage Results" MODIFIED="1724950802547" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/MAIPO_PYWR" />
     <SUITE FILE_PATH="coverage/Pywr_projects$RegNN.coverage" NAME="RegNN Coverage Results" MODIFIED="1729325112934" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/../YaoGroup/scratch" />
     <SUITE FILE_PATH="coverage/Pywr_projects$RegNN_tf.coverage" NAME="RegNN_tf Coverage Results" MODIFIED="1729290633802" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/../YaoGroup/scratch" />
-    <SUITE FILE_PATH="coverage/Pywr_projects$SPI_calculator_v2.coverage" NAME="SPI_calculator_v2 Coverage Results" MODIFIED="1724950802547" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/MAIPO_PYWR" />
-    <SUITE FILE_PATH="coverage/Pywr_projects$example_sim_opt_caller.coverage" NAME="example_sim_opt_caller Coverage Results" MODIFIED="1725779939457" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/MAIPO_PYWR/dps_BORG" />
-    <SUITE FILE_PATH="coverage/Pywr_projects$example_sim_opt.coverage" NAME="example_sim_opt Coverage Results" MODIFIED="1727937672141" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/MAIPO_PYWR/dps_BORG" />
+    <SUITE FILE_PATH="coverage/Pywr_projects$borg.coverage" NAME="borg Coverage Results" MODIFIED="1725779396529" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/MAIPO_PYWR/dps_BORG" />
     <SUITE FILE_PATH="coverage/Pywr_projects$threshold_graphs.coverage" NAME="threshold_graphs Coverage Results" MODIFIED="1728245011966" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/MAIPO_PYWR/dps_BORG" />
-    <SUITE FILE_PATH="coverage/Pywr_projects$drought_status_scratch.coverage" NAME="drought_status_scratch Coverage Results" MODIFIED="1727937837733" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/MAIPO_PYWR/dps_BORG" />
   </component>
 </project>

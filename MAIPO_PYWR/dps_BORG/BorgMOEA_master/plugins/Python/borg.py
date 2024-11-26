@@ -83,7 +83,7 @@ class Configuration:
             Configuration.libc = CDLL(path)
         elif os.name == "posix":
             try:
-                Configuration.libc = CDLL("libc.so.6")
+                Configuration.libc = CDLL("/usr/lib/x86_64-linux-gnu/libc.so.6")
             except OSError:
                 return
         elif os.name == "nt" and cdll.msvcrt:
@@ -97,7 +97,7 @@ class Configuration:
             Configuration.stdout = Configuration.libc._fdopen(sys.stdout.fileno(), "w")
 
     @staticmethod
-    def setBorgLibrary(path="C:\\Users\\danny\\Pywr projects\\MAIPO_PYWR\\dps_BORG\\BorgMOEA_master\\borg.dll"):
+    def setBorgLibrary(path=None):
         """ Override the location of the Borg MOEA shared object.
 
         If the path is not specified, this method attempts to auto-detect the location
@@ -118,7 +118,7 @@ class Configuration:
                     Configuration.stdcall = True
         elif os.name == "posix":
             try:
-                Configuration.libborg = CDLL("./libborg.so")
+                Configuration.libborg = CDLL("/home/danny/FletcherLab/maipo-basin-pywr/MAIPO_PYWR/dps_BORG/libborg.so")
                 Configuration.stdcall = False
             except OSError:
                 return
@@ -195,10 +195,10 @@ class Configuration:
         except AttributeError:
             # The serial Borg MOEA C library is loaded; switch to parallel
             try:
-                Configuration.setBorgLibrary("./libborgmm.so")
+                Configuration.setBorgLibrary("/home/danny/FletcherLab/maipo-basin-pywr/MAIPO_PYWR/dps_BORG/BorgMOEA_master/libborgmm.so")
             except OSError:
                 try:
-                    Configuration.setBorgLibrary("./libborgms.so")
+                    Configuration.setBorgLibrary("/home/danny/FletcherLab/maipo-basin-pywr/MAIPO_PYWR/dps_BORG/BorgMOEA_master/libborgms.so")
                 except OSError:
                     raise OSError("Unable to locate the parallel Borg MOEA C library")
 
@@ -216,6 +216,8 @@ class Configuration:
         Configuration.libborg.BORG_Algorithm_ms_startup(
             cast(addressof(argc), POINTER(c_int)),
             cast(addressof(argv), POINTER(CHARPP)))
+
+        print("huh")
 
         Configuration.libborg.BORG_Algorithm_ms_run.restype = c_void_p
 
@@ -297,6 +299,8 @@ class Borg:
         bounds              - The lower and upper bounds for each decision variable
         directions          - The optimization direction (MINIMIZE or MAXIMIZE) for each objective
         """
+
+
 
         # Ensure the underlying library is available
         Configuration.check()
