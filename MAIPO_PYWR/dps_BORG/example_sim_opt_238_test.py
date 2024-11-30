@@ -1443,97 +1443,111 @@ def make_model(contract_threshold_vals=-999999 * np.ones(num_DP), contract_actio
     )
     recorderIndex['PurchasesCost'] = model.recorders.__len__() - 1
 
-    # AprilSeasonRollingMeanFlowElManzano
-    SeasonRollingMeanFlowNodeRecorder(
-        model,
-        node=El_Manzano,
-        first_week=1,
-        last_week=27,
-        years=5,
-        name='AprilSeasonRollingMeanFlowElManzano'
-    )
-    recorderIndex['AprilSeasonRollingMeanFlowElManzano'] = model.recorders.__len__() - 1
+    # # AprilSeasonRollingMeanFlowElManzano
+    # SeasonRollingMeanFlowNodeRecorder(
+    #     model,
+    #     node=El_Manzano,
+    #     first_week=1,
+    #     last_week=27,
+    #     years=5,
+    #     name='AprilSeasonRollingMeanFlowElManzano'
+    # )
+    # recorderIndex['AprilSeasonRollingMeanFlowElManzano'] = model.recorders.__len__() - 1
+    #
+    # # OctoberSeasonRollingMeanFlowElManzano
+    # SeasonRollingMeanFlowNodeRecorder(
+    #     model,
+    #     node=El_Manzano,
+    #     first_week=27,
+    #     last_week=53,
+    #     years=5,
+    #     name='OctoberSeasonRollingMeanFlowElManzano'
+    # )
+    # recorderIndex['OctoberSeasonRollingMeanFlowElManzano'] = model.recorders.__len__() - 1
+    #
+    # # PremiumAprilCost
+    # PurchasesCostRecorder(
+    #     model,
+    #     purchases_value=model.parameters["april_contract"],
+    #     meanflow=model.recorders['RollingMeanFlowElManzano'],
+    #     discount_rate=0.035,
+    #     coeff=0.1,
+    #     name="PremiumAprilCost"
+    # )
+    # recorderIndex['PremiumAprilCost'] = model.recorders.__len__() - 1
+    #
+    # # PremiumOctoberCost
+    # PurchasesCostRecorder(
+    #     model,
+    #     purchases_value=model.parameters["october_contract"],
+    #     meanflow=model.recorders["RollingMeanFlowElManzano"],
+    #     discount_rate=0.035,
+    #     coeff=0.1,
+    #     name="PremiumOctoberCost"
+    # )
+    # recorderIndex['PremiumOctoberCost'] = model.recorders.__len__() - 1
+    #
+    # # AprilContractCost
+    # ContractCostRecorder(
+    #     model,
+    #     contract_value=model.parameters["april_contract"],
+    #     meanflow=model.recorders["AprilSeasonRollingMeanFlowElManzano"],
+    #     purchases_value=model.parameters["purchases_value"],
+    #     discount_rate=0.035,
+    #     max_cost=100,
+    #     gradient=-1,
+    #     coeff=1,
+    #     week_no=1,
+    #     name="AprilContractCost"
+    # )
+    # recorderIndex['AprilContractCost'] = model.recorders.__len__() - 1
+    #
+    # # OctoberContractCost
+    # ContractCostRecorder(
+    #     model,
+    #     contract_value=model.parameters["october_contract"],
+    #     meanflow=model.recorders["OctoberSeasonRollingMeanFlowElManzano"],
+    #     purchases_value=model.parameters["purchases_value"],
+    #     discount_rate=0.035,
+    #     max_cost=100,
+    #     gradient=-1,
+    #     coeff=1,
+    #     week_no=27,
+    #     name="OctoberContractCost"
+    # )
+    # recorderIndex['OctoberContractCost'] = model.recorders.__len__() - 1
 
-    # OctoberSeasonRollingMeanFlowElManzano
-    SeasonRollingMeanFlowNodeRecorder(
-        model,
-        node=El_Manzano,
-        first_week=27,
-        last_week=53,
-        years=5,
-        name='OctoberSeasonRollingMeanFlowElManzano'
-    )
-    recorderIndex['OctoberSeasonRollingMeanFlowElManzano'] = model.recorders.__len__() - 1
+    # # TotalCost
+    # AggregatedRecorder(
+    #     model,
+    #     agg_func="mean",
+    #     recorder_agg_func="sum",
+    #     recorders=[
+    #         model.recorders["ReservoirCost"],
+    #         model.recorders["PurchasesCost"],
+    #         model.recorders["PremiumAprilCost"],
+    #         model.recorders["PremiumOctoberCost"],
+    #         model.recorders["AprilContractCost"],
+    #         model.recorders["OctoberContractCost"]
+    #     ],
+    #     is_objective="minimize",
+    #     name="TotalCost"
+    # )
+    # recorderIndex['TotalCost'] = model.recorders.__len__() - 1
 
-    # PremiumAprilCost
-    PurchasesCostRecorder(
+    # Record cost of purchases over time
+    NumpyArrayContractCostRecorder(
         model,
-        purchases_value=model.parameters["april_contract"],
-        meanflow=model.recorders['RollingMeanFlowElManzano'],
-        discount_rate=0.035,
-        coeff=0.1,
-        name="PremiumAprilCost"
-    )
-    recorderIndex['PremiumAprilCost'] = model.recorders.__len__() - 1
-
-    # PremiumOctoberCost
-    PurchasesCostRecorder(
-        model,
-        purchases_value=model.parameters["october_contract"],
+        contract_value=model.parameters["contract_value"],
         meanflow=model.recorders["RollingMeanFlowElManzano"],
-        discount_rate=0.035,
-        coeff=0.1,
-        name="PremiumOctoberCost"
-    )
-    recorderIndex['PremiumOctoberCost'] = model.recorders.__len__() - 1
-
-    # AprilContractCost
-    ContractCostRecorder(
-        model,
-        contract_value=model.parameters["april_contract"],
-        meanflow=model.recorders["AprilSeasonRollingMeanFlowElManzano"],
         purchases_value=model.parameters["purchases_value"],
-        discount_rate=0.035,
         max_cost=100,
         gradient=-1,
         coeff=1,
-        week_no=1,
-        name="AprilContractCost"
+        num_weeks=1560,
+        name="ContractCost"
     )
-    recorderIndex['AprilContractCost'] = model.recorders.__len__() - 1
-
-    # OctoberContractCost
-    ContractCostRecorder(
-        model,
-        contract_value=model.parameters["october_contract"],
-        meanflow=model.recorders["OctoberSeasonRollingMeanFlowElManzano"],
-        purchases_value=model.parameters["purchases_value"],
-        discount_rate=0.035,
-        max_cost=100,
-        gradient=-1,
-        coeff=1,
-        week_no=27,
-        name="OctoberContractCost"
-    )
-    recorderIndex['OctoberContractCost'] = model.recorders.__len__() - 1
-
-    # TotalCost
-    AggregatedRecorder(
-        model,
-        agg_func="mean",
-        recorder_agg_func="sum",
-        recorders=[
-            model.recorders["ReservoirCost"],
-            model.recorders["PurchasesCost"],
-            model.recorders["PremiumAprilCost"],
-            model.recorders["PremiumOctoberCost"],
-            model.recorders["AprilContractCost"],
-            model.recorders["OctoberContractCost"]
-        ],
-        is_objective="minimize",
-        name="TotalCost"
-    )
-    recorderIndex['TotalCost'] = model.recorders.__len__() - 1
+    recorderIndex['ContractCost'] = model.recorders.__len__() - 1
 
     # deficit PT1 (measured on original demand)
     TotalDeficitNodeRecorder(
