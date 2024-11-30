@@ -1539,11 +1539,9 @@ def make_model(contracts_purchased,
         contract_value=model.parameters["contract_value"],
         meanflow=model.recorders["RollingMeanFlowElManzano"],
         purchases_value=model.parameters["purchases_value"],
-        # discount_rate=0.035,
         max_cost=100,
         gradient=-1,
         coeff=1,
-        # week_no=1,
         num_weeks=1560,
         name="ContractCost"
     )
