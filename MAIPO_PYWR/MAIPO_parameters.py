@@ -1339,43 +1339,43 @@ class PolicyTreeTrigger(Parameter):
 PolicyTreeTrigger.register()
 
 
-# Create Gaussian distribution for weighting neighbors
-gaussian = multivariate_normal(mean=np.zeros(4), cov=np.diag(0.3 * np.ones(4)))
-
-
-# Get neighbors of an index (-1 and +1, with cutoff at 0 and 10)
-def neighbors(idx):
-    return range(np.max(idx - 1, 0), 1 + np.min(idx + 1, 10))
-
-
-# Given a state, get neighboring states and their weights
-def get_nearby_states_and_weights(week_of_year_idx, storage_idx, inflow_idx, indicator_idx):
-    neighbors = []
-    for week_of_year_neighbor in neighbors(week_of_year_idx):
-        for storage_neighbor in neighbors(storage_idx):
-            for inflow_neighbor in neighbors(inflow_idx):
-                for indicator_neighbor in neighbors(indicator_idx):
-                    state = (
-                        week_of_year_neighbor,
-                        storage_neighbor,
-                        inflow_neighbor,
-                        indicator_neighbor
-                    )
-
-                    weight = gaussian(
-                        (week_of_year_idx - week_of_year_neighbor) / 10,
-                        (storage_idx - storage_neighbor) / 10,
-                        (inflow_idx - inflow_neighbor) / 10,
-                        (indicator_idx - indicator_neighbor) / 10,
-                    )
-
-                    neighbors.append({
-                        "state": state,
-                        "weight": weight
-                    })
-
-    return neighbors
-
+# # Create Gaussian distribution for weighting neighbors
+# gaussian = multivariate_normal(mean=np.zeros(4), cov=np.diag(0.3 * np.ones(4)))
+#
+#
+# # Get neighbors of an index (-1 and +1, with cutoff at 0 and 10)
+# def neighbors(idx):
+#     return range(np.max(idx - 1, 0), 1 + np.min(idx + 1, 10))
+#
+#
+# # Given a state, get neighboring states and their weights
+# def get_nearby_states_and_weights(week_of_year_idx, storage_idx, inflow_idx, indicator_idx):
+#     neighbors = []
+#     for week_of_year_neighbor in neighbors(week_of_year_idx):
+#         for storage_neighbor in neighbors(storage_idx):
+#             for inflow_neighbor in neighbors(inflow_idx):
+#                 for indicator_neighbor in neighbors(indicator_idx):
+#                     state = (
+#                         week_of_year_neighbor,
+#                         storage_neighbor,
+#                         inflow_neighbor,
+#                         indicator_neighbor
+#                     )
+#
+#                     weight = gaussian(
+#                         (week_of_year_idx - week_of_year_neighbor) / 10,
+#                         (storage_idx - storage_neighbor) / 10,
+#                         (inflow_idx - inflow_neighbor) / 10,
+#                         (indicator_idx - indicator_neighbor) / 10,
+#                     )
+#
+#                     neighbors.append({
+#                         "state": state,
+#                         "weight": weight
+#                     })
+#
+#     return neighbors
+#
 
 # Chooses how many contracts to buy on a weekly basis (read from policy)
 class WeeklyContracts(Parameter):
@@ -1432,20 +1432,20 @@ class WeeklyContracts(Parameter):
 
         action_chosen = self.actions[state]
 
-        # Base action on neighbors if this state was never seen and no action is associated
-        if action_chosen == -1:
-            neighbors = get_nearby_states_and_weights(state)
-            neighbor_action_weights = np.zeros(11)
-            for neighbor in neighbors:
-                neighbor_state = neighbor.state
-                neighbor_weight = neighbor.weight
-                neighbor_action = self.actions[neighbor_state]
-                if neighbor_action != -1:
-                    neighbor_action_weights[neighbor_action] += neighbor_weight
-            action_chosen = np.argmax(neighbor_action_weights)
-        if action_chosen == -1:  # Randomly choose if neighbors haven't been seen either
+        # # Base action on neighbors if this state was never seen and no action is associated
+        # if action_chosen == -1:
+        #     neighbors = get_nearby_states_and_weights(state)
+        #     neighbor_action_weights = np.zeros(11)
+        #     for neighbor in neighbors:
+        #         neighbor_state = neighbor.state
+        #         neighbor_weight = neighbor.weight
+        #         neighbor_action = self.actions[neighbor_state]
+        #         if neighbor_action != -1:
+        #             neighbor_action_weights[neighbor_action] += neighbor_weight
+        #     action_chosen = np.argmax(neighbor_action_weights)
+        if action_chosen == -1:  # Randomly choose if stae and neighbors haven't been seen
             action_chosen = np.random.randint(0, 11)
-            print("No best action found at state: {}. Choosing randomly".format(state))
+            print("No best action found at state {}. Choosing randomly".format(state))
         return action_chosen
 
     # NOT LOADING ANYTHING ANYTIME SOON, CAN MAKE LOAD METHOD LATER
