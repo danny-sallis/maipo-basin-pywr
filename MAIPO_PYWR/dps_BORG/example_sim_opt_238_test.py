@@ -874,7 +874,7 @@ def make_model(contract_threshold_vals=-999999 * np.ones(num_DP), contract_actio
 
 
 
-    A = np.fromfile(policy_file, dtype=int)
+    A = np.load(policy_file, allow_pickle=True)
 
     # Contract value [FIND OUT HOW TO CHOOSE FROM POLICY]
     WeeklyContracts(
