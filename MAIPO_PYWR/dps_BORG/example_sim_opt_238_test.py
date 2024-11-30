@@ -35,7 +35,8 @@ num_DP = 7  # number of decision periods
 
 def make_model(contract_threshold_vals=-999999 * np.ones(num_DP), contract_action_vals=np.zeros(num_DP),
                demand_threshold_vals=[], demand_action_vals=[np.ones(12)], indicator="SRI3",
-               drought_status_agg="drought_status_single_day_using_agg"):
+               drought_status_agg="drought_status_single_day_using_agg",
+               policy_file="A MLEs.txt"):
     '''
     Purpose: Creates a Pywr model with the specified number and values for policy thresholds/actions. Intended for use with MOEAs.
 
@@ -95,6 +96,15 @@ def make_model(contract_threshold_vals=-999999 * np.ones(num_DP), contract_actio
         initial_volume=220,
         cost=-1000
     )
+
+    # Storage in Embalse
+    EmbalseStorage = StorageParameter(
+        model,
+        name="Embalse storage",
+        storage_node=Embalse
+    )
+    paramIndex['Embalse storage'] = model.parameters.__len__() - 1
+
 
     # Maipo_capacity
     ConstantParameter(
@@ -236,95 +246,103 @@ def make_model(contract_threshold_vals=-999999 * np.ones(num_DP), contract_actio
     model.parameters._objects[paramIndex[
         "drought_status_single_day_using_agg"]].name = "drought_status_single_day_using_agg"  # add name to parameter
 
-    # april_threshold
-    april_thresholds = []
-    for i, k in enumerate(contract_threshold_vals):
-        april_thresholds.append(
-            ConstantParameter(model, name=f"april_threshold{i}", value=k, is_variable=False, upper_bounds=0))
-        paramIndex[f"april_threshold{i}"] = model.parameters.__len__() - 1
-    IndexedArrayParameter(
-        model,
-        name="april_threshold",
-        index_parameter=model.parameters["DP_index"],  # DP_index
-        params=april_thresholds,
-        comment="variable parameter that set the drought threshold for contracts in april"
-    )
-    paramIndex["april_threshold"] = model.parameters.__len__() - 1
+    # # april_threshold
+    # april_thresholds = []
+    # for i, k in enumerate(contract_threshold_vals):
+    #     april_thresholds.append(
+    #         ConstantParameter(model, name=f"april_threshold{i}", value=k, is_variable=False, upper_bounds=0))
+    #     paramIndex[f"april_threshold{i}"] = model.parameters.__len__() - 1
+    # IndexedArrayParameter(
+    #     model,
+    #     name="april_threshold",
+    #     index_parameter=model.parameters["DP_index"],  # DP_index
+    #     params=april_thresholds,
+    #     comment="variable parameter that set the drought threshold for contracts in april"
+    # )
+    # paramIndex["april_threshold"] = model.parameters.__len__() - 1
+    #
+    # # october_threshold
+    # october_thresholds = []
+    # for i, k in enumerate(contract_threshold_vals):
+    #     october_thresholds.append(
+    #         ConstantParameter(model, name=f"october_threshold{i}", value=k, is_variable=False, upper_bounds=0))
+    #     paramIndex[f"october_threshold{i}"] = model.parameters.__len__() - 1
+    # IndexedArrayParameter(
+    #     model,
+    #     name="october_threshold",
+    #     index_parameter=model.parameters["DP_index"],  # DP_index
+    #     params=october_thresholds,
+    #     comment="variable parameter that set the drought threshold for contracts in october"
+    # )
+    # paramIndex["october_threshold"] = model.parameters.__len__() - 1
+    #
+    # # april_contract
+    # april_contracts = []
+    # for i, k in enumerate(contract_action_vals):
+    #     april_contracts.append(
+    #         ConstantParameter(model, name=f"april_contract{i}", value=k, is_variable=False, upper_bounds=1500))
+    #     paramIndex[f"april_contract{i}"] = model.parameters.__len__() - 1
+    # IndexedArrayParameter(
+    #     model,
+    #     name="april_contract",
+    #     index_parameter=model.parameters["DP_index"],  # DP_index
+    #     params=april_contracts,
+    #     comment="variable parameter that set the contract shares in april for a determined dp"
+    # )
+    # paramIndex["april_contract"] = model.parameters.__len__() - 1
+    #
+    # # october_contract
+    # october_contracts = []
+    # for i, k in enumerate(contract_action_vals):
+    #     october_contracts.append(
+    #         ConstantParameter(model, name=f"october_contract{i}", value=k, is_variable=False, upper_bounds=1500))
+    #     paramIndex[f"april_contract{i}"] = model.parameters.__len__() - 1
+    # IndexedArrayParameter(
+    #     model,
+    #     name="october_contract",
+    #     index_parameter=model.parameters["DP_index"],  # DP_index parameter
+    #     params=october_contracts,
+    #     comment="variable parameter that set the contract shares in october for a determined dp"
+    # )
+    # paramIndex["october_contract"] = model.parameters.__len__() - 1
+    #
+    # # contract_value
+    # PolicyTreeTriggerHardCoded(
+    #     model,
+    #     name="contract_value",
+    #     thresholds={
+    #         1: model.parameters["april_threshold"],  # april_threshold parameter
+    #         27: model.parameters["october_threshold"]  # october_threshold parameter
+    #     },
+    #     contracts={
+    #         1: model.parameters["april_contract"],  # april_threshold parameter
+    #         27: model.parameters["october_contract"]  # october_threshold parameter
+    #     },
+    #     drought_status=model.parameters[drought_status_agg],  # drought_status parameter
+    #     comment="Receive two dates where the drought status is evaluated, the contract and the reservoir evaluated, and gives back the amount of shares transferred in that specific week"
+    # )
+    # paramIndex["contract_value"] = model.parameters.__len__() - 1
 
-    # october_threshold
-    october_thresholds = []
-    for i, k in enumerate(contract_threshold_vals):
-        october_thresholds.append(
-            ConstantParameter(model, name=f"october_threshold{i}", value=k, is_variable=False, upper_bounds=0))
-        paramIndex[f"october_threshold{i}"] = model.parameters.__len__() - 1
-    IndexedArrayParameter(
-        model,
-        name="october_threshold",
-        index_parameter=model.parameters["DP_index"],  # DP_index
-        params=october_thresholds,
-        comment="variable parameter that set the drought threshold for contracts in october"
-    )
-    paramIndex["october_threshold"] = model.parameters.__len__() - 1
+    # # purchases_value
+    # purchases = []
+    # for i in range(len(contract_action_vals)):
+    #     purchases.append(ConstantParameter(model, name=f"purchase{i}", value=0, is_variable=False, upper_bounds=813))
+    #     paramIndex[f"purchase{i}"] = model.parameters.__len__() - 1
+    # AccumulatedIndexedArrayParameter(
+    #     model,
+    #     name="purchases_value",
+    #     index_parameter=model.parameters["DP_index"],  # DP_index parameter
+    #     params=purchases,
+    #     comment="parameter that set the shares bought at a determined dp, accumulating past purchases"
+    # )
 
-    # april_contract
-    april_contracts = []
-    for i, k in enumerate(contract_action_vals):
-        april_contracts.append(
-            ConstantParameter(model, name=f"april_contract{i}", value=k, is_variable=False, upper_bounds=1500))
-        paramIndex[f"april_contract{i}"] = model.parameters.__len__() - 1
-    IndexedArrayParameter(
-        model,
-        name="april_contract",
-        index_parameter=model.parameters["DP_index"],  # DP_index
-        params=april_contracts,
-        comment="variable parameter that set the contract shares in april for a determined dp"
-    )
-    paramIndex["april_contract"] = model.parameters.__len__() - 1
-
-    # october_contract
-    october_contracts = []
-    for i, k in enumerate(contract_action_vals):
-        october_contracts.append(
-            ConstantParameter(model, name=f"october_contract{i}", value=k, is_variable=False, upper_bounds=1500))
-        paramIndex[f"april_contract{i}"] = model.parameters.__len__() - 1
-    IndexedArrayParameter(
-        model,
-        name="october_contract",
-        index_parameter=model.parameters["DP_index"],  # DP_index parameter
-        params=october_contracts,
-        comment="variable parameter that set the contract shares in october for a determined dp"
-    )
-    paramIndex["october_contract"] = model.parameters.__len__() - 1
-
-    # contract_value
-    PolicyTreeTriggerHardCoded(
-        model,
-        name="contract_value",
-        thresholds={
-            1: model.parameters["april_threshold"],  # april_threshold parameter
-            27: model.parameters["october_threshold"]  # october_threshold parameter
-        },
-        contracts={
-            1: model.parameters["april_contract"],  # april_threshold parameter
-            27: model.parameters["october_contract"]  # october_threshold parameter
-        },
-        drought_status=model.parameters[drought_status_agg],  # drought_status parameter
-        comment="Receive two dates where the drought status is evaluated, the contract and the reservoir evaluated, and gives back the amount of shares transferred in that specific week"
-    )
-    paramIndex["contract_value"] = model.parameters.__len__() - 1
-
-    # purchases_value
-    purchases = []
-    for i in range(len(contract_action_vals)):
-        purchases.append(ConstantParameter(model, name=f"purchase{i}", value=0, is_variable=False, upper_bounds=813))
-        paramIndex[f"purchase{i}"] = model.parameters.__len__() - 1
-    AccumulatedIndexedArrayParameter(
+    # purchases_value (0 for now)
+    ConstantParameter(
         model,
         name="purchases_value",
-        index_parameter=model.parameters["DP_index"],  # DP_index parameter
-        params=purchases,
-        comment="parameter that set the shares bought at a determined dp, accumulating past purchases"
+        value=0
     )
+    paramIndex["purchases_value"] = model.parameters.__len__() - 1
 
     # # thresholds for level1 demand restriction
     # ConstantParameter(
@@ -852,7 +870,23 @@ def make_model(contract_threshold_vals=-999999 * np.ones(num_DP), contract_actio
         agg_func="product",
         name="descarga_regla_Maipo"
     )
-    paramIndex['descarga_regla_Maipo'] = model.parameters.__len__() - 1
+    paramIndex['descarga_regla_Maipo'] = model.parameters.__len__() -1
+
+
+
+    A = np.fromfile(policy_file, dtype=int)
+
+    # Contract value [FIND OUT HOW TO CHOOSE FROM POLICY]
+    WeeklyContracts(
+        model,
+        name="contract_value",
+        A=A,
+        storage=model.parameters["Embalse storage"],
+        inflows=model.parameters["caudal_naturalizado"],
+        indicators=model.parameters[drought_status_agg]
+    )
+    paramIndex["contract_value"] = model.parameters.__len__() - 1
+
 
     # AA_total_shares_constant
     ConstantParameter(

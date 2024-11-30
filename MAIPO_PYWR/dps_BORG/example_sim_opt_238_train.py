@@ -1,11 +1,15 @@
 # general package imports
 
 import sys
-sys.path.append("/home/danny/FletcherLab/maipo-basin-pywr")
+import platform  # helps identify directory locations on different types of OS
+# sys.path.append("/home/danny/FletcherLab/maipo-basin-pywr")
+if platform.system() == "Windows":
+    sys.path.append("C:\\Users\\danny\\Pywr projects")
+else:
+    sys.path.append("/home/danny/FletcherLab/maipo-basin-pywr")
 
 import numpy as np
 import pandas as pd
-import platform  # helps identify directory locations on different types of OS
 import sys
 
 # pywr imports
@@ -33,9 +37,10 @@ num_k = 1  # number of levels in policy tree
 num_DP = 7  # number of decision periods
 
 
-def make_model(contract_threshold_vals=-999999 * np.ones(num_DP), contract_action_vals=np.zeros(num_DP),
-               demand_threshold_vals=[], demand_action_vals=[np.ones(12)], indicator="SRI3",
-               drought_status_agg="drought_status_single_day_using_agg"):
+def make_model(contracts_purchased,
+               demand_threshold_vals=[], demand_action_vals=[np.ones(12)],
+               indicator="SRI3", drought_status_agg="drought_status_single_day_using_agg",
+               Embalse_fixed_flow=220):
     '''
     Purpose: Creates a Pywr model with the specified number and values for policy thresholds/actions. Intended for use with MOEAs.
 
@@ -86,15 +91,34 @@ def make_model(contract_threshold_vals=-999999 * np.ones(num_DP), contract_actio
     )
     paramIndex["DP_index"] = model.parameters.__len__() - 1
 
-    # Embalse
-    Embalse = Storage(
+    # Embalse_fixed inputs constant flow at each time step for training purposes
+    Embalse_fixed_flow = ConstantParameter(
         model,
-        name="Embalse",
-        min_volume=15,
-        max_volume=220,
-        initial_volume=220,
-        cost=-1000
+        name="Embalse_fixed_flow",
+        value=Embalse_fixed_flow,
+        is_variable=False,
+        lower_bounds=0,
+        upper_bounds=220-15  # max capacity minus min capacity
     )
+    paramIndex['Embalse_fixed_flow'] = model.parameters.__len__() - 1
+
+    # # Embalse
+    # # Embalse = Storage(
+    # #     model,
+    # #     name="Embalse",
+    # #     min_volume=15,
+    # #     max_volume=220,
+    # #     initial_volume=220,
+    # #     cost=-1000
+    # # )
+    # Embalse = Storage(
+    #     model,
+    #     name="Embalse",
+    #     min_volume=15,
+    #     max_volume=220,
+    #     initial_volume=220,
+    #     cost=-100000
+    # )
 
     # Maipo_capacity
     ConstantParameter(
@@ -192,8 +216,13 @@ def make_model(contract_threshold_vals=-999999 * np.ones(num_DP), contract_actio
     # PARAMETERS
     # multiple usable drought_status parameters:
     # drought_status_single_day (uses just the first day of april/october)
+    if platform.system() == "Windows":
+        data_url_base = "C:\\Users\\danny\\Pywr projects\\MAIPO_PYWR\\data\\"
+    else:
+        data_url_base = "/home/danny/FletcherLab/maipo-basin-pywr/MAIPO_PYWR/data/"
+
     df = {
-        'url': './MAIPO_PYWR/data/{}.csv'.format(indicator),  # 'data/SRI6.csv'
+        'url': '{}{}.csv'.format(data_url_base, indicator),  # 'data/SRI6.csv'
         "parse_dates": True,
         "index_col": "Timestamp",
         "dayfirst": True}
@@ -220,7 +249,7 @@ def make_model(contract_threshold_vals=-999999 * np.ones(num_DP), contract_actio
     # WILL LIKELY HAVE TO BUILD FROM DATAFRAMEPARAMETER
     # MOST GENERAL -- COULD TRY TO MAKE FIRST!
     df = {
-        'url': './MAIPO_PYWR/data/{}.csv'.format(indicator),  # 'data/SRI6.csv'
+        'url': '{}{}.csv'.format(data_url_base, indicator),  # 'data/SRI6.csv'
         "parse_dates": True,
         "index_col": "Timestamp",
         "dayfirst": True}
@@ -236,95 +265,115 @@ def make_model(contract_threshold_vals=-999999 * np.ones(num_DP), contract_actio
     model.parameters._objects[paramIndex[
         "drought_status_single_day_using_agg"]].name = "drought_status_single_day_using_agg"  # add name to parameter
 
-    # april_threshold
-    april_thresholds = []
-    for i, k in enumerate(contract_threshold_vals):
-        april_thresholds.append(
-            ConstantParameter(model, name=f"april_threshold{i}", value=k, is_variable=False, upper_bounds=0))
-        paramIndex[f"april_threshold{i}"] = model.parameters.__len__() - 1
-    IndexedArrayParameter(
-        model,
-        name="april_threshold",
-        index_parameter=model.parameters["DP_index"],  # DP_index
-        params=april_thresholds,
-        comment="variable parameter that set the drought threshold for contracts in april"
-    )
-    paramIndex["april_threshold"] = model.parameters.__len__() - 1
+    # # april_threshold
+    # april_thresholds = []
+    # for i, k in enumerate(contract_threshold_vals):
+    #     april_thresholds.append(
+    #         ConstantParameter(model, name=f"april_threshold{i}", value=k, is_variable=False, upper_bounds=0))
+    #     paramIndex[f"april_threshold{i}"] = model.parameters.__len__() - 1
+    # IndexedArrayParameter(
+    #     model,
+    #     name="april_threshold",
+    #     index_parameter=model.parameters["DP_index"],  # DP_index
+    #     params=april_thresholds,
+    #     comment="variable parameter that set the drought threshold for contracts in april"
+    # )
+    # paramIndex["april_threshold"] = model.parameters.__len__() - 1
+    #
+    # # october_threshold
+    # october_thresholds = []
+    # for i, k in enumerate(contract_threshold_vals):
+    #     october_thresholds.append(
+    #         ConstantParameter(model, name=f"october_threshold{i}", value=k, is_variable=False, upper_bounds=0))
+    #     paramIndex[f"october_threshold{i}"] = model.parameters.__len__() - 1
+    # IndexedArrayParameter(
+    #     model,
+    #     name="october_threshold",
+    #     index_parameter=model.parameters["DP_index"],  # DP_index
+    #     params=october_thresholds,
+    #     comment="variable parameter that set the drought threshold for contracts in october"
+    # )
+    # paramIndex["october_threshold"] = model.parameters.__len__() - 1
+    #
+    #
+    #
+    #
+    # # april_contract
+    # april_contracts = []
+    # for i, k in enumerate(contract_action_vals):
+    #     april_contracts.append(
+    #         ConstantParameter(model, name=f"april_contract{i}", value=k, is_variable=False, upper_bounds=1500))
+    #     paramIndex[f"april_contract{i}"] = model.parameters.__len__() - 1
+    # IndexedArrayParameter(
+    #     model,
+    #     name="april_contract",
+    #     index_parameter=model.parameters["DP_index"],  # DP_index
+    #     params=april_contracts,
+    #     comment="variable parameter that set the contract shares in april for a determined dp"
+    # )
+    # paramIndex["april_contract"] = model.parameters.__len__() - 1
+    #
+    # # october_contract
+    # october_contracts = []
+    # for i, k in enumerate(contract_action_vals):
+    #     october_contracts.append(
+    #         ConstantParameter(model, name=f"october_contract{i}", value=k, is_variable=False, upper_bounds=1500))
+    #     paramIndex[f"april_contract{i}"] = model.parameters.__len__() - 1
+    # IndexedArrayParameter(
+    #     model,
+    #     name="october_contract",
+    #     index_parameter=model.parameters["DP_index"],  # DP_index parameter
+    #     params=october_contracts,
+    #     comment="variable parameter that set the contract shares in october for a determined dp"
+    # )
+    # paramIndex["october_contract"] = model.parameters.__len__() - 1
+    #
+    # # contract_value
+    # PolicyTreeTriggerHardCoded(
+    #     model,
+    #     name="contract_value",
+    #     thresholds={
+    #         1: model.parameters["april_threshold"],  # april_threshold parameter
+    #         27: model.parameters["october_threshold"]  # october_threshold parameter
+    #     },
+    #     contracts={
+    #         1: model.parameters["april_contract"],  # april_threshold parameter
+    #         27: model.parameters["october_contract"]  # october_threshold parameter
+    #     },
+    #     drought_status=model.parameters[drought_status_agg],  # drought_status parameter
+    #     comment="Receive two dates where the drought status is evaluated, the contract and the reservoir evaluated, and gives back the amount of shares transferred in that specific week"
+    # )
+    # paramIndex["contract_value"] = model.parameters.__len__() - 1
 
-    # october_threshold
-    october_thresholds = []
-    for i, k in enumerate(contract_threshold_vals):
-        october_thresholds.append(
-            ConstantParameter(model, name=f"october_threshold{i}", value=k, is_variable=False, upper_bounds=0))
-        paramIndex[f"october_threshold{i}"] = model.parameters.__len__() - 1
-    IndexedArrayParameter(
-        model,
-        name="october_threshold",
-        index_parameter=model.parameters["DP_index"],  # DP_index
-        params=october_thresholds,
-        comment="variable parameter that set the drought threshold for contracts in october"
-    )
-    paramIndex["october_threshold"] = model.parameters.__len__() - 1
 
-    # april_contract
-    april_contracts = []
-    for i, k in enumerate(contract_action_vals):
-        april_contracts.append(
-            ConstantParameter(model, name=f"april_contract{i}", value=k, is_variable=False, upper_bounds=1500))
-        paramIndex[f"april_contract{i}"] = model.parameters.__len__() - 1
-    IndexedArrayParameter(
-        model,
-        name="april_contract",
-        index_parameter=model.parameters["DP_index"],  # DP_index
-        params=april_contracts,
-        comment="variable parameter that set the contract shares in april for a determined dp"
-    )
-    paramIndex["april_contract"] = model.parameters.__len__() - 1
-
-    # october_contract
-    october_contracts = []
-    for i, k in enumerate(contract_action_vals):
-        october_contracts.append(
-            ConstantParameter(model, name=f"october_contract{i}", value=k, is_variable=False, upper_bounds=1500))
-        paramIndex[f"april_contract{i}"] = model.parameters.__len__() - 1
-    IndexedArrayParameter(
-        model,
-        name="october_contract",
-        index_parameter=model.parameters["DP_index"],  # DP_index parameter
-        params=october_contracts,
-        comment="variable parameter that set the contract shares in october for a determined dp"
-    )
-    paramIndex["october_contract"] = model.parameters.__len__() - 1
-
-    # contract_value
-    PolicyTreeTriggerHardCoded(
+    # preset contract
+    ConstantParameter(
         model,
         name="contract_value",
-        thresholds={
-            1: model.parameters["april_threshold"],  # april_threshold parameter
-            27: model.parameters["october_threshold"]  # october_threshold parameter
-        },
-        contracts={
-            1: model.parameters["april_contract"],  # april_threshold parameter
-            27: model.parameters["october_contract"]  # october_threshold parameter
-        },
-        drought_status=model.parameters[drought_status_agg],  # drought_status parameter
-        comment="Receive two dates where the drought status is evaluated, the contract and the reservoir evaluated, and gives back the amount of shares transferred in that specific week"
+        value=contracts_purchased
     )
     paramIndex["contract_value"] = model.parameters.__len__() - 1
 
-    # purchases_value
-    purchases = []
-    for i in range(len(contract_action_vals)):
-        purchases.append(ConstantParameter(model, name=f"purchase{i}", value=0, is_variable=False, upper_bounds=813))
-        paramIndex[f"purchase{i}"] = model.parameters.__len__() - 1
-    AccumulatedIndexedArrayParameter(
+    # # purchases_value
+    # purchases = []
+    # for i in range(len(contract_action_vals)):
+    #     purchases.append(ConstantParameter(model, name=f"purchase{i}", value=0, is_variable=False, upper_bounds=813))
+    #     paramIndex[f"purchase{i}"] = model.parameters.__len__() - 1
+    # AccumulatedIndexedArrayParameter(
+    #     model,
+    #     name="purchases_value",
+    #     index_parameter=model.parameters["DP_index"],  # DP_index parameter
+    #     params=purchases,
+    #     comment="parameter that set the shares bought at a determined dp, accumulating past purchases"
+    # )
+
+    # purchases_value (0 for now)
+    ConstantParameter(
         model,
         name="purchases_value",
-        index_parameter=model.parameters["DP_index"],  # DP_index parameter
-        params=purchases,
-        comment="parameter that set the shares bought at a determined dp, accumulating past purchases"
+        value=0
     )
+    paramIndex["purchases_value"] = model.parameters.__len__() - 1
 
     # # thresholds for level1 demand restriction
     # ConstantParameter(
@@ -411,10 +460,9 @@ def make_model(contract_threshold_vals=-999999 * np.ones(num_DP), contract_actio
     # )
     # paramIndex["demand_restriction_factor"] = model.parameters.__len__() - 1
 
-    print("It worked!")
     # flow_Yeso
     df = {
-        'url': './MAIPO_PYWR/data/YESO.csv',
+        'url': '{}YESO.csv'.format(data_url_base),
         "parse_dates": True,
         "index_col": 0,
         "dayfirst": True}
@@ -429,7 +477,7 @@ def make_model(contract_threshold_vals=-999999 * np.ones(num_DP), contract_actio
 
     # flow_Maipo
     df = {
-        'url': './MAIPO_PYWR/data/MAIPO.csv',
+        'url': '{}/MAIPO.csv'.format(data_url_base),
         "parse_dates": True,
         "index_col": 0,
         "dayfirst": True}
@@ -444,7 +492,7 @@ def make_model(contract_threshold_vals=-999999 * np.ones(num_DP), contract_actio
 
     # flow_Colorado
     df = {
-        'url': './MAIPO_PYWR/data/COLORADO.csv',
+        'url': '{}COLORADO.csv'.format(data_url_base),
         "parse_dates": True,
         "index_col": 0,
         "dayfirst": True}
@@ -459,7 +507,7 @@ def make_model(contract_threshold_vals=-999999 * np.ones(num_DP), contract_actio
 
     # flow_Volcan
     df = {
-        'url': './MAIPO_PYWR/data/VOLCAN.csv',
+        'url': '{}VOLCAN.csv'.format(data_url_base),
         "parse_dates": True,
         "index_col": 0,
         "dayfirst": True}
@@ -474,7 +522,7 @@ def make_model(contract_threshold_vals=-999999 * np.ones(num_DP), contract_actio
 
     # flow_Laguna Negra
     df = {
-        'url': './MAIPO_PYWR/data/LAGUNANEGRA.csv',
+        'url': '{}LAGUNANEGRA.csv'.format(data_url_base),
         "parse_dates": True,
         "index_col": 0,
         "dayfirst": True}
@@ -489,7 +537,7 @@ def make_model(contract_threshold_vals=-999999 * np.ones(num_DP), contract_actio
 
     # flow_Maipo extra
     df = {
-        'url': './MAIPO_PYWR/data/MAIPOEXTRA.csv',
+        'url': '{}MAIPOEXTRA.csv'.format(data_url_base),
         "parse_dates": True,
         "index_col": 0,
         "dayfirst": True}
@@ -504,7 +552,7 @@ def make_model(contract_threshold_vals=-999999 * np.ones(num_DP), contract_actio
 
     # aux_acueductoln
     df = {
-        'url': './MAIPO_PYWR/data/Extra data.csv',
+        'url': '{}Extra data.csv'.format(data_url_base),
         "parse_dates": True,
         "index_col": 0,
         "dayfirst": True,
@@ -520,7 +568,7 @@ def make_model(contract_threshold_vals=-999999 * np.ones(num_DP), contract_actio
 
     # aux_extraccionln
     df = {
-        'url': './MAIPO_PYWR/data/Extra data.csv',
+        'url': '{}Extra data.csv'.format(data_url_base),
         "parse_dates": True,
         "index_col": 0,
         "dayfirst": True,
@@ -536,7 +584,7 @@ def make_model(contract_threshold_vals=-999999 * np.ones(num_DP), contract_actio
 
     # aux_acueductoyeso
     df = {
-        'url': './MAIPO_PYWR/data/Extra data.csv',
+        'url': '{}Extra data.csv'.format(data_url_base),
         "parse_dates": True,
         "index_col": 0,
         "dayfirst": True,
@@ -552,7 +600,7 @@ def make_model(contract_threshold_vals=-999999 * np.ones(num_DP), contract_actio
 
     # aux_filtraciones
     df = {
-        'url': './MAIPO_PYWR/data/Extra data.csv',
+        'url': '{}Extra data.csv'.format(data_url_base),
         "parse_dates": True,
         "index_col": 0,
         "dayfirst": True,
@@ -568,7 +616,7 @@ def make_model(contract_threshold_vals=-999999 * np.ones(num_DP), contract_actio
 
     # threshold_laobra
     df = {
-        'url': './MAIPO_PYWR/data/Extra data.csv',
+        'url': '{}Extra data.csv'.format(data_url_base),
         "parse_dates": True,
         "index_col": 0,
         "dayfirst": True,
@@ -584,7 +632,7 @@ def make_model(contract_threshold_vals=-999999 * np.ones(num_DP), contract_actio
 
     # discount_rate_factor
     df = {
-        'url': './MAIPO_PYWR/data/Extra data.csv',
+        'url': '{}Extra data.csv'.format(data_url_base),
         "parse_dates": True,
         "index_col": 0,
         "dayfirst": True,
@@ -600,7 +648,7 @@ def make_model(contract_threshold_vals=-999999 * np.ones(num_DP), contract_actio
 
     # descarga_adicional
     df = {
-        'url': './MAIPO_PYWR/data/Extra data.csv',
+        'url': '{}Extra data.csv'.format(data_url_base),
         "parse_dates": True,
         "index_col": 0,
         "dayfirst": True,
@@ -616,7 +664,7 @@ def make_model(contract_threshold_vals=-999999 * np.ones(num_DP), contract_actio
 
     # estacionalidad_distribucion
     df = {
-        'url': './MAIPO_PYWR/data/Extra data.csv',
+        'url': '{}Extra data.csv'.format(data_url_base),
         "parse_dates": True,
         "index_col": 0,
         "dayfirst": True,
@@ -633,7 +681,7 @@ def make_model(contract_threshold_vals=-999999 * np.ones(num_DP), contract_actio
 
     # demanda_PT1
     df = {
-        'url': './MAIPO_PYWR/data/Extra data.csv',
+        'url': '{}Extra data.csv'.format(data_url_base),
         "parse_dates": True,
         "index_col": 0,
         "dayfirst": True,
@@ -710,7 +758,7 @@ def make_model(contract_threshold_vals=-999999 * np.ones(num_DP), contract_actio
 
     # demanda_PT2
     df = {
-        'url': './MAIPO_PYWR/data/Extra data.csv',
+        'url': '{}Extra data.csv'.format(data_url_base),
         "parse_dates": True,
         "index_col": 0,
         "dayfirst": True,
@@ -733,10 +781,10 @@ def make_model(contract_threshold_vals=-999999 * np.ones(num_DP), contract_actio
     paramIndex['demanda_PT2_negativa'] = model.parameters.__len__() - 1
 
     # requisito_embalse
-    StorageThresholdParameter(
+    ParameterThresholdParameter(
         model,
-        storage=Embalse,
-        threshold=140,
+        param=Embalse_fixed_flow,
+        threshold=140 - 15,
         predicate="LT",
         values=[1, 0],
         name="requisito_embalse"
@@ -1051,6 +1099,32 @@ def make_model(contract_threshold_vals=-999999 * np.ones(num_DP), contract_actio
         flow=model.parameters["flow_Maipo extra"]
     )
 
+    # Catchment that leads into Embalse_fixed_inflow to replace Embalse in this model
+    Embalse_fixed_catchment = Catchment(
+        model,
+        name="Embalse fixed catchment",
+        flow=model.parameters["Embalse_fixed_flow"]
+    )
+
+    # Inflow node that the Yeso catchment and Embalse_fixed_catchement lead to
+    Embalse_fixed_inflow = River(
+        model,
+        name="Embalse fixed inflow"
+    )
+
+    Embalse_fixed_outflow = River(
+        model,
+        name="Embalse fixed outflow",
+        max_flow=220-15,
+        cost=1000
+    )
+
+    Embalse_fixed_drain = Output(
+        model,
+        name="Embalse fixed drain"
+    )
+
+
     # Regla Embalse Maipo
     Regla_Embalse_Maipo = River(
         model,
@@ -1294,16 +1368,23 @@ def make_model(contract_threshold_vals=-999999 * np.ones(num_DP), contract_actio
     Laguna_negra.connect(Estero_del_Manzanito)
     Maipo_extra.connect(aux_Maipo_Extra)
     # from storage nodes
-    Embalse.connect(Acueducto_El_Yeso_2)
-    Embalse.connect(Descarga_Embalse)
-    Embalse.connect(Filtraciones_Embalse)
+    # Embalse.connect(Acueducto_El_Yeso_2)
+    # Embalse.connect(Descarga_Embalse)
+    # Embalse.connect(Filtraciones_Embalse)
+    Embalse_fixed_catchment.connect(Embalse_fixed_inflow)
+    Embalse_fixed_inflow.connect(Embalse_fixed_outflow)
+    Embalse_fixed_inflow.connect(Embalse_fixed_drain)
+    Embalse_fixed_outflow.connect(Acueducto_El_Yeso_2)
+    Embalse_fixed_outflow.connect(Descarga_Embalse)
+    Embalse_fixed_outflow.connect(Filtraciones_Embalse)
     Embalse_Maipo.connect(Descarga_Embalse_Maipo)
     Embalse_Maipo.connect(Acueducto_Maipo)
     Embalse_Maipo.connect(Regla_Embalse_Maipo)
     Embalse_Maipo.connect(Filtraciones_Embalse_Maipo)
     # from river nodes
     Regla_Embalse_Maipo.connect(El_Manzano)
-    Rio_Yeso_Alto.connect(Embalse)
+    # Rio_Yeso_Alto.connect(Embalse)
+    Rio_Yeso_Alto.connect(Embalse_fixed_inflow)
     Rio_Yeso_Bajo.connect(El_Manzano)
     Rio_Maipo_Alto.connect(Embalse_Maipo)
     Rio_Colorado.connect(El_Manzano)
@@ -1398,108 +1479,123 @@ def make_model(contract_threshold_vals=-999999 * np.ones(num_DP), contract_actio
     )
     recorderIndex['ReservoirCost'] = model.recorders.__len__() - 1
 
-    # PurchasesCost
-    PurchasesCostRecorder(
-        model,
-        purchases_value=model.parameters["purchases_value"],
-        meanflow=model.recorders['RollingMeanFlowElManzano'],
-        discount_rate=0.035,
-        coeff=1,
-        name="PurchasesCost"
-    )
-    recorderIndex['PurchasesCost'] = model.recorders.__len__() - 1
+    # # PurchasesCost
+    # PurchasesCostRecorder(
+    #     model,
+    #     purchases_value=model.parameters["purchases_value"],
+    #     meanflow=model.recorders['RollingMeanFlowElManzano'],
+    #     discount_rate=0.035,
+    #     coeff=1,
+    #     name="PurchasesCost"
+    # )
+    # recorderIndex['PurchasesCost'] = model.recorders.__len__() - 1
 
-    # AprilSeasonRollingMeanFlowElManzano
-    SeasonRollingMeanFlowNodeRecorder(
-        model,
-        node=El_Manzano,
-        first_week=1,
-        last_week=27,
-        years=5,
-        name='AprilSeasonRollingMeanFlowElManzano'
-    )
-    recorderIndex['AprilSeasonRollingMeanFlowElManzano'] = model.recorders.__len__() - 1
+    # # AprilSeasonRollingMeanFlowElManzano
+    # SeasonRollingMeanFlowNodeRecorder(
+    #     model,
+    #     node=El_Manzano,
+    #     first_week=1,
+    #     last_week=27,
+    #     years=5,
+    #     name='AprilSeasonRollingMeanFlowElManzano'
+    # )
+    # recorderIndex['AprilSeasonRollingMeanFlowElManzano'] = model.recorders.__len__() - 1
+    #
+    # # OctoberSeasonRollingMeanFlowElManzano
+    # SeasonRollingMeanFlowNodeRecorder(
+    #     model,
+    #     node=El_Manzano,
+    #     first_week=27,
+    #     last_week=53,
+    #     years=5,
+    #     name='OctoberSeasonRollingMeanFlowElManzano'
+    # )
+    # recorderIndex['OctoberSeasonRollingMeanFlowElManzano'] = model.recorders.__len__() - 1
+    #
+    # # PremiumAprilCost
+    # PurchasesCostRecorder(
+    #     model,
+    #     purchases_value=model.parameters["april_contract"],
+    #     meanflow=model.recorders['RollingMeanFlowElManzano'],
+    #     discount_rate=0.035,
+    #     coeff=0.1,
+    #     name="PremiumAprilCost"
+    # )
+    # recorderIndex['PremiumAprilCost'] = model.recorders.__len__() - 1
+    #
+    # # PremiumOctoberCost
+    # PurchasesCostRecorder(
+    #     model,
+    #     purchases_value=model.parameters["october_contract"],
+    #     meanflow=model.recorders["RollingMeanFlowElManzano"],
+    #     discount_rate=0.035,
+    #     coeff=0.1,
+    #     name="PremiumOctoberCost"
+    # )
+    # recorderIndex['PremiumOctoberCost'] = model.recorders.__len__() - 1
 
-    # OctoberSeasonRollingMeanFlowElManzano
-    SeasonRollingMeanFlowNodeRecorder(
+    NumpyArrayContractCostRecorder(
         model,
-        node=El_Manzano,
-        first_week=27,
-        last_week=53,
-        years=5,
-        name='OctoberSeasonRollingMeanFlowElManzano'
-    )
-    recorderIndex['OctoberSeasonRollingMeanFlowElManzano'] = model.recorders.__len__() - 1
-
-    # PremiumAprilCost
-    PurchasesCostRecorder(
-        model,
-        purchases_value=model.parameters["april_contract"],
-        meanflow=model.recorders['RollingMeanFlowElManzano'],
-        discount_rate=0.035,
-        coeff=0.1,
-        name="PremiumAprilCost"
-    )
-    recorderIndex['PremiumAprilCost'] = model.recorders.__len__() - 1
-
-    # PremiumOctoberCost
-    PurchasesCostRecorder(
-        model,
-        purchases_value=model.parameters["october_contract"],
+        contract_value=model.parameters["contract_value"],
         meanflow=model.recorders["RollingMeanFlowElManzano"],
-        discount_rate=0.035,
-        coeff=0.1,
-        name="PremiumOctoberCost"
-    )
-    recorderIndex['PremiumOctoberCost'] = model.recorders.__len__() - 1
-
-    # AprilContractCost
-    ContractCostRecorder(
-        model,
-        contract_value=model.parameters["april_contract"],
-        meanflow=model.recorders["AprilSeasonRollingMeanFlowElManzano"],
         purchases_value=model.parameters["purchases_value"],
-        discount_rate=0.035,
+        # discount_rate=0.035,
         max_cost=100,
         gradient=-1,
         coeff=1,
-        week_no=1,
-        name="AprilContractCost"
+        # week_no=1,
+        num_weeks=1560,
+        name="ContractCost"
     )
-    recorderIndex['AprilContractCost'] = model.recorders.__len__() - 1
+    recorderIndex['ContractCost'] = model.recorders.__len__() - 1
 
-    # OctoberContractCost
-    ContractCostRecorder(
-        model,
-        contract_value=model.parameters["october_contract"],
-        meanflow=model.recorders["OctoberSeasonRollingMeanFlowElManzano"],
-        purchases_value=model.parameters["purchases_value"],
-        discount_rate=0.035,
-        max_cost=100,
-        gradient=-1,
-        coeff=1,
-        week_no=27,
-        name="OctoberContractCost"
-    )
-    recorderIndex['OctoberContractCost'] = model.recorders.__len__() - 1
-
-    # TotalCost
-    AggregatedRecorder(
-        model,
-        agg_func="mean",
-        recorder_agg_func="sum",
-        recorders=[
-            model.recorders["ReservoirCost"],
-            model.recorders["PurchasesCost"],
-            model.recorders["PremiumAprilCost"],
-            model.recorders["PremiumOctoberCost"],
-            model.recorders["AprilContractCost"],
-            model.recorders["OctoberContractCost"]
-        ],
-        is_objective="minimize",
-        name="TotalCost"
-    )
-    recorderIndex['TotalCost'] = model.recorders.__len__() - 1
+    # # AprilContractCost
+    # ContractCostRecorder(
+    #     model,
+    #     contract_value=model.parameters["april_contract"],
+    #     meanflow=model.recorders["AprilSeasonRollingMeanFlowElManzano"],
+    #     purchases_value=model.parameters["purchases_value"],
+    #     discount_rate=0.035,
+    #     max_cost=100,
+    #     gradient=-1,
+    #     coeff=1,
+    #     week_no=1,
+    #     name="AprilContractCost"
+    # )
+    # recorderIndex['AprilContractCost'] = model.recorders.__len__() - 1
+    #
+    # # OctoberContractCost
+    # ContractCostRecorder(
+    #     model,
+    #     contract_value=model.parameters["october_contract"],
+    #     meanflow=model.recorders["OctoberSeasonRollingMeanFlowElManzano"],
+    #     purchases_value=model.parameters["purchases_value"],
+    #     discount_rate=0.035,
+    #     max_cost=100,
+    #     gradient=-1,
+    #     coeff=1,
+    #     week_no=27,
+    #     name="OctoberContractCost"
+    # )
+    # recorderIndex['OctoberContractCost'] = model.recorders.__len__() - 1
+    #
+    # # TotalCost
+    # AggregatedRecorder(
+    #     model,
+    #     agg_func="mean",
+    #     recorder_agg_func="sum",
+    #     recorders=[
+    #         model.recorders["ReservoirCost"],
+    #         model.recorders["PurchasesCost"],
+    #         model.recorders["PremiumAprilCost"],
+    #         model.recorders["PremiumOctoberCost"],
+    #         model.recorders["AprilContractCost"],
+    #         model.recorders["OctoberContractCost"]
+    #     ],
+    #     is_objective="minimize",
+    #     name="TotalCost"
+    # )
+    # recorderIndex['TotalCost'] = model.recorders.__len__() - 1
 
     # deficit PT1 (measured on original demand)
     TotalDeficitNodeRecorder(
@@ -1595,21 +1691,30 @@ def make_model(contract_threshold_vals=-999999 * np.ones(num_DP), contract_actio
     )
     recorderIndex['Salida Maipo flow'] = model.recorders.__len__() - 1
 
-    # Embalse storage
-    NumpyArrayStorageRecorder(
+    # Embalse_fixed_drain
+    NumpyArrayNodeRecorder(
         model,
-        node=Embalse,
-        name="Embalse storage"
+        node=Embalse_fixed_drain,
+        name="Embalse_fixed_drain flow",
+        agg_func="SUM"
     )
-    recorderIndex['Embalse storage'] = model.recorders.__len__() - 1
+    recorderIndex['Embalse_fixed_drain flow'] = model.recorders.__len__() - 1
 
-    # Total inflow from reservoirs
+    # # Embalse storage
+    # NumpyArrayStorageRecorder(
+    #     model,
+    #     node=Embalse,
+    #     name="Embalse storage"
+    # )
+    # recorderIndex['Embalse storage'] = model.recorders.__len__() - 1
+
+    # Total inflow from catchments
     NumpyArrayParameterRecorder(
         model,
         param=model.parameters["caudal_naturalizado"],
-        name="Total reservoir inflow"
+        name="Total catchment inflow"
     )
-    recorderIndex['Total reservoir inflow'] = model.recorders.__len__() - 1
+    recorderIndex['Total catchment inflow'] = model.recorders.__len__() - 1
 
     # remaining water rights per week
     NumpyArrayParameterRecorder(
@@ -1728,7 +1833,12 @@ def Optimization():
     # import MAIPO_PYWR.dps_BORG.borg as bg  # Import borg wrapper
     # import MAIPO_PYWR.dps_BORG.BorgMOEA_master.plugins.Python.borg as bg  # Import borg wrapper
 
-    parallel = 1  # 1= master-slave (parallel), 0=serial
+    parallel = 0  # 1= master-slave (parallel), 0=serial
+
+    if platform.system() == "Windows":
+        data_url_base = "C:\\Users\\danny\\Pywr projects\\MAIPO_PYWR\\data\\"
+    else:
+        data_url_base = "/home/danny/FletcherLab/maipo-basin-pywr/MAIPO_PYWR/data/"
 
     # List of objectives:
     # failure_frequency_PT1 (minimize)
@@ -1746,8 +1856,7 @@ def Optimization():
     # contract_action_vals
     # demand_threshold_vals
     # demand_action_vals
-
-    data = pd.read_csv("/home/danny/FletcherLab/maipo-basin-pywr/MAIPO_PYWR/data/Extra data.csv")
+    data = pd.read_csv("{}Extra data.csv".format(data_url_base))
     urban_demand = data["PT1"]
     num_weeks = len(urban_demand)
     total_urban_demand = urban_demand.sum()

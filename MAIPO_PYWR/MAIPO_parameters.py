@@ -10,6 +10,7 @@ import pandas as pd
 import tables
 import pandas
 import numpy as np
+from scipy.stats import norm, multivariate_normal, percentileofscore
 import matplotlib.pyplot as plt
 import plotly.express as px
 from plotly.subplots import make_subplots
@@ -908,6 +909,80 @@ class ContractCostRecorder (Recorder):
         return cls(model, contract_value, meanflow, purchases_value, **data)
 ContractCostRecorder.register()
 
+
+class NumpyArrayContractCostRecorder(Recorder):
+    """
+        Spanish:
+        Entrega el costo total relativo a los contratos segun fueron activados
+
+        English:
+        Delivers the total cost relative to the contracts as they were activated
+    """
+
+    def __init__(self, model, contract_value, meanflow, purchases_value, max_cost, gradient, coeff,
+                 num_weeks, total_shares=8133, **kwargs):
+        super().__init__(model, **kwargs)
+        self.meanflow = meanflow
+        self.children.add(meanflow)
+        self.contract_value = contract_value
+        self.children.add(contract_value)
+        self.purchases_value = purchases_value
+        self.children.add(purchases_value)
+        # self.discount_rate = discount_rate
+        self.max_cost = max_cost
+        self.gradient = gradient
+        self.coeff = coeff
+        # self.week_no = week_no
+        self.num_weeks = num_weeks
+        self.total_shares = total_shares
+        self._costs = None
+
+    def reset(self):
+        self._costs = np.zeros((len(self.model.scenarios.combinations), self.num_weeks))
+
+    def after(self):
+        # calculates the week
+        ts = self.model.timestepper.current
+        week_no = ts.index % 52
+        week_no += 1
+        year_no = ts.index // 52
+
+        costs = self._costs
+        shares = self.contract_value.get_all_values()
+        purchases = self.purchases_value.get_all_values()
+        mean_flows = self.meanflow.data
+        m = self.gradient
+        n = self.max_cost
+
+        # discount_factor = 1 / (1 + self.discount_rate) ** (year_no)
+
+        interruptor = 0  # por mientras
+
+        for i in range(len(costs)):
+            if interruptor == 1:
+                c = 262.273 / 0.08
+                costs[i, ts.index] += c / 26# * discount_factor
+            else:
+                f = mean_flows[ts.index, i] * 26
+                K = shares[i]
+                p = purchases[i]
+                c = (m * K * f / 8133 * (f * K / (2 * 8133) + n / m - (8133 - 1917 - p) * f / 8133)) / 26
+                costs[i, ts.index] += c# * discount_factor
+
+    def values(self):
+        return self._costs
+
+    @classmethod
+    def load(cls, model, data):
+        meanflow = load_recorder(model, data.pop("mean_flow"))
+        contract_value = load_parameter(model, data.pop("contract"))
+        purchases_value = load_parameter(model, data.pop("purchases"))
+        return cls(model, contract_value, meanflow, purchases_value, **data)
+
+
+NumpyArrayContractCostRecorder.register()
+
+
 def CustomizedAggregation(model, weights):
 # Apply weighted aggregation function
     def weighted_agg_func(values):
@@ -1262,3 +1337,120 @@ class PolicyTreeTrigger(Parameter):
         drought_status = load_parameter(model, 'drought_status')
         return cls(model, drought_status, thresholds_k1, thresholds_k2, thresholds_k3, contracts_k1, contracts_k2, contracts_k3)
 PolicyTreeTrigger.register()
+
+
+# Create Gaussian distribution for weighting neighbors
+gaussian = multivariate_normal(mean=np.zeros(4), cov=np.diag(0.3 * np.ones(4)))
+
+
+# Get neighbors of an index (-1 and +1, with cutoff at 0 and 10)
+def neighbors(idx):
+    return range(np.max(idx - 1, 0), 1 + np.min(idx + 1, 10))
+
+
+# Given a state, get neighboring states and their weights
+def get_nearby_states_and_weights(week_of_year_idx, storage_idx, inflow_idx, indicator_idx):
+    neighbors = []
+    for week_of_year_neighbor in neighbors(week_of_year_idx):
+        for storage_neighbor in neighbors(storage_idx):
+            for inflow_neighbor in neighbors(inflow_idx):
+                for indicator_neighbor in neighbors(indicator_idx):
+                    state = (
+                        week_of_year_neighbor,
+                        storage_neighbor,
+                        inflow_neighbor,
+                        indicator_neighbor
+                    )
+
+                    weight = gaussian(
+                        (week_of_year_idx - week_of_year_neighbor) / 10,
+                        (storage_idx - storage_neighbor) / 10,
+                        (inflow_idx - inflow_neighbor) / 10,
+                        (indicator_idx - indicator_neighbor) / 10,
+                    )
+
+                    neighbors.append({
+                        "state": state,
+                        "weight": weight
+                    })
+
+    return neighbors
+
+
+# Chooses how many contracts to buy on a weekly basis (read from policy)
+class WeeklyContracts(Parameter):
+    # A: actions to choose at each state
+    # storage: parameter with Embalse's current storage
+    # inflows: amount of water inflowing from catchments across time
+    # indicators: indicators across time
+    def __init__(self, A, storage, inflows, indicators):
+        self.actions = A
+        # storage parameter must be calculated before action chosen
+        self.children.add(storage)
+        self.storage = storage
+        self.inflows = inflows
+        self.indicators = indicators
+
+        # Store training data in sorted order to help calculate percentiles and indices
+        training_data = pd.read_csv("preprocessed_training_data")
+        self.week_of_year_sorted = np.sort(training_data["Week of year"])
+        self.storage_sorted = np.sort(training_data["Storage"])
+        self.inflows_sorted = np.sort(training_data["Inflows"])
+        self.indicators_sorted = np.sort(training_data["Indicators"])
+
+        def get_percentile(col, val):
+            return np.searchsorted(col, val) / len(col)
+        self.get_percentile = get_percentile
+
+    # Use policy to choose how many contracts to buy in this step/scenario
+    def value(self, timestep, scenario_index):
+        cur_week_of_year = (timestep - 1) % 52 + 1
+        cur_storage = self.storage(timestep, scenario_index)
+        if timestep == 1:  # Don't have access to previous data; just use current
+            prev_inflows = self.inflows[timestep, scenario_index]
+            prev_indicators = self.indicators[timestep, scenario_index]
+        else:  # Use inflows and indicators seen last week
+            prev_inflows = self.inflows[timestep - 1, scenario_index]
+            prev_indicators = self.indicators[timestep - 1, scenario_index]
+
+        # Get percentiles to find indices of A
+        week_of_year_percentile = self.get_percentile(self.week_of_year_sorted, cur_week_of_year)
+        storage_percentile = self.get_percentile(self.storage_sorted, cur_storage)
+        inflows_percentile = self.get_percentile(self.inflows_sorted, prev_inflows)
+        indicators_percentile = self.get_percentile(self.indicators_sorted, prev_indicators)
+        week_of_year_index = int(10 * week_of_year_percentile)
+        storage_index = int(10 * storage_percentile)
+        inflows_index = int(10 * inflows_percentile)
+        indicators_index = int(10 * indicators_percentile)
+
+        state = (
+            week_of_year_index,
+            storage_index,
+            inflows_index,
+            indicators_index
+        )
+
+        action_chosen = self.actions[state]
+
+        # Base action on neighbors if this state was never seen and no action is associated
+        if action_chosen == -1:
+            neighbors = get_nearby_states_and_weights(state)
+            neighbor_action_weights = np.zeros(11)
+            for neighbor in neighbors:
+                neighbor_state = neighbor.state
+                neighbor_weight = neighbor.weight
+                neighbor_action = self.actions[neighbor_state]
+                if neighbor_action != -1:
+                    neighbor_action_weights[neighbor_action] += neighbor_weight
+            action_chosen = np.argmax(neighbor_action_weights)
+        if action_chosen == -1:  # Randomly choose if neighbors haven't been seen either
+            action_chosen = np.random.randint(0, 11)
+            print("No best action found at state: {}. Choosing randomly".format(state))
+        return action_chosen
+
+    # NOT LOADING ANYTHING ANYTIME SOON, CAN MAKE LOAD METHOD LATER
+    @classmethod
+    def load(cls, cls_1, model, data):
+        # storage, inflows, indicators
+        NotImplementedError("Loading from JSON is not yet implemented for this parameter")
+
