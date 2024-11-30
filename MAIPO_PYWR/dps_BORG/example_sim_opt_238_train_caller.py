@@ -14,6 +14,7 @@ else:
 import numpy as np
 import pandas as pd
 from scipy.stats import norm, multivariate_normal, percentileofscore
+import pickle
 
 # pywr imports
 from pywr.core import *
@@ -412,98 +413,192 @@ def get_MLE_utilities_and_actions(discount_factor, data, num_iters=50):
                         U[indices] = best_utility
                         A[indices] = best_action
 
-    np.savetxt("Q MLEs.txt", Q)
-    np.savetxt("U MLEs.txt", U)
-    np.savetxt("A MLEs.txt", A)
+    # np.savetxt("Q MLEs.txt", Q)
+    # np.savetxt("U MLEs.txt", U)
+    # np.savetxt("A MLEs.txt", A)
     return Q, U, A
 
 
-get_MLE_utilities_and_actions(0.95, results_df, num_iters=100)
+Q, U, A = get_MLE_utilities_and_actions(0.95, results_df, num_iters=100)
+
+
+#%% Save MLE outputs
+
+q_output = open('Q MLEs.pkl', 'wb')
+pickle.dump(Q, q_output)
+
+u_output = open('U MLEs.pkl', 'wb')
+pickle.dump(U, u_output)
+
+a_output = open('A MLEs.pkl', 'wb')
+pickle.dump(A, a_output)
 
 
 #%% Apply Q-learning to get utilities and actions
 
 # Get neighbors of an index (-1 and +1, with cutoff at 0 and 10)
-def neighbors(idx):
-    return np.array(range(np.max(idx - 1, 0), 1 + np.min(idx + 1, 10)))
+def get_neighbors(idx):
+    idx_rounded = np.round(idx).astype(int)
+    print(idx_rounded)
+    if np.abs(idx - idx_rounded) >= 0.001:
+        print(idx, idx_rounded)
+    return np.array(range(np.maximum(idx_rounded - 1, 0), 1 + np.minimum(idx_rounded + 1, 10)))
 
 
 # Get neighbors of a state and their weights
+# Only use neighbors at most one away to speed up
 def get_nearby_states_and_weights(week_of_year_idx, storage_idx, inflow_idx, indicator_idx):
     neighbors = []
-    for week_of_year_neighbor in neighbors(week_of_year_idx):
-        for storage_neighbor in neighbors(storage_idx):
-            for inflow_neighbor in neighbors(inflow_idx):
-                for indicator_neighbor in neighbors(indicator_idx):
-                    state = (
-                        week_of_year_neighbor,
-                        storage_neighbor,
-                        inflow_neighbor,
-                        indicator_neighbor
-                    )
+    base_state = [week_of_year_idx, storage_idx, inflow_idx, indicator_idx]
+    base_weight = gaussian.pdf((0, 0, 0, 0))
+    neighbor_weight = gaussian.pdf((1, 0, 0, 0))
+    neighbors.append({
+        "state": tuple(base_state),
+        "weight": base_weight
+    })
+    idx_tuple = (week_of_year_idx, storage_idx, inflow_idx, indicator_idx)
+    for var_idx, var in enumerate(idx_tuple):
+        if var - 1 >= 0:
+            neighbor_state = base_state[:]
+            neighbor_state[var_idx] -= 1
+            neighbors.append({
+                "state": tuple(neighbor_state),
+                "weight": neighbor_weight
+            })
 
-                    weight = gaussian(
-                        (week_of_year_idx - week_of_year_neighbor) / 10,
-                        (storage_idx - storage_neighbor) / 10,
-                        (inflow_idx - inflow_neighbor) / 10,
-                        (indicator_idx - indicator_neighbor) / 10,
-                    )
-
-                    neighbors.append({
-                        "state": state,
-                        "weight": weight
-                    })
+        if var + 1 <= 10:
+            neighbor_state = base_state[:]
+            neighbor_state[var_idx] += 1
+            neighbors.append({
+                "state": tuple(neighbor_state),
+                "weight": neighbor_weight
+            })
+    #
+    # for week_of_year_neighbor in get_neighbors(week_of_year_idx):
+    #     if week_of_year_neighbor == week_of_year_idx:
+    #         continue
+    #     state = (
+    #         week_of_year_neighbor,
+    #         storage_neighbor,
+    #         inflow_neighbor,
+    #         indicator_neighbor
+    #     )
+    #
+    #     weight = gaussian.pdf((
+    #         (week_of_year_idx - week_of_year_neighbor) / 10,
+    #         (storage_idx - storage_neighbor) / 10,
+    #         (inflow_idx - inflow_neighbor) / 10,
+    #         (indicator_idx - indicator_neighbor) / 10,
+    #     ))
+    #
+    #     neighbors.append({
+    #         "state": state,
+    #         "weight": weight
+    #     })
+    #     for storage_neighbor in get_neighbors(storage_idx):
+    #         for inflow_neighbor in get_neighbors(inflow_idx):
+    #             for indicator_neighbor in get_neighbors(indicator_idx):
+    #                 state = (
+    #                     week_of_year_neighbor,
+    #                     storage_neighbor,
+    #                     inflow_neighbor,
+    #                     indicator_neighbor
+    #                 )
+    #
+    #                 weight = gaussian.pdf((
+    #                     (week_of_year_idx - week_of_year_neighbor) / 10,
+    #                     (storage_idx - storage_neighbor) / 10,
+    #                     (inflow_idx - inflow_neighbor) / 10,
+    #                     (indicator_idx - indicator_neighbor) / 10,
+    #                 ))
+    #
+    #                 neighbors.append({
+    #                     "state": state,
+    #                     "weight": weight
+    #                 })
 
     return neighbors
 
 # Apply to Q-learning algorithm For each iteration, go through every row of data,
 # with weight depending on Gaussian distance again
-def q_learn_utilities_and_actions(discount_factor, data, num_iters=100):
+def q_learn_utilities_and_actions(discount_factor, data, Q=np.zeros((11, 11, 11, 11, 11)), num_iters=100):
     # multiplying alpha by Gaussian weights during training
-    alpha = 0.04 / gaussian((0, 0, 0, 0))
+    alpha = 0.04 / gaussian.pdf((0, 0, 0, 0))
 
-    Q = np.zeros((11, 11, 11, 11, 11))  # Utility for each state/action pair
+    # new_tuple = (*(0, 0, 0, 0), 0)
+    # print(Q[new_tuple])
+    # Q = np.zeros((11, 11, 11, 11, 11))  # Utility for each state/action pair
     U = np.zeros((11, 11, 11, 11))  # best utility for each state pair
     A = -np.ones((11, 11, 11, 11))  # best action for each state
 
-    for idx, row in pd.iterrows(data):
-        week_of_year_idx = row["Week of year percentiles index"]
-        storage_idx = row["Storage percentiles index"]
-        inflow_idx = row["Inflow percentiles index"]
-        indicator_idx = row["Indicator percentiles index"]
+    num_rows = len(data)
+    row_percent = num_rows // 100
 
-        next_week_of_year_idx = row["Next week of year percentiles index"]
-        next_storage_idx = row["Next storage percentiles index"]
-        next_inflow_idx = row["Next inflow percentiles index"]
-        next_indicator_idx = row["Next indicator percentiles index"]
+    for iteration in range(num_iters):
+        print(iteration)
+        for idx, row in data.iterrows():
+            if idx % row_percent == 0:
+                print("percent: {}".format(idx // row_percent))
+            week_of_year_idx = row["Week of year percentiles index"]
+            storage_idx = row["Storage percentiles index"]
+            inflow_idx = row["Inflow percentiles index"]
+            indicator_idx = row["Indicator percentiles index"]
 
-        cur_state = (
-            week_of_year_idx,
-            storage_idx,
-            inflow_idx,
-            indicator_idx
-        )
+            contract_val = row["Contracts purchased"]
 
-        cur_state_neighbors = get_nearby_states_and_weights(cur_state)
+            next_week_of_year_idx = row["Next week of year percentiles index"]
+            next_storage_idx = row["Next storage percentiles index"]
+            next_inflow_idx = row["Next inflow percentiles index"]
+            next_indicator_idx = row["Next indicator percentiles index"]
 
-        next_state = (
-            next_week_of_year_idx,
-            next_storage_idx,
-            next_inflow_idx,
-            next_indicator_idx
-        )
+            cur_state = [
+                week_of_year_idx,
+                storage_idx,
+                inflow_idx,
+                indicator_idx
+            ]
 
-        next_state_neighbors = get_nearby_states_and_weights(next_state)
+            for i in range(len(cur_state)):
+                original_state = cur_state[i]
+                cur_state[i] = int(cur_state[i])
+                if original_state - cur_state[i] > 0.0001:
+                    print(original_state, cur_state[i])
 
-        for cur_state_neighbor in cur_state_neighbors:
+            cur_state_neighbors = get_nearby_states_and_weights(*cur_state)
+
+            next_state = [
+                next_week_of_year_idx,
+                next_storage_idx,
+                next_inflow_idx,
+                next_indicator_idx
+            ]
+
+            for i in range(len(next_state)):
+                original_state = next_state[i]
+                next_state[i] = int(next_state[i])
+                if original_state - next_state[i] > 0.0001:
+                    print(original_state, next_state[i])
+
+            next_state_neighbors = get_nearby_states_and_weights(*next_state)
+
+            for cur_state_neighbor in cur_state_neighbors:
+                cur_neighbor_state = cur_state_neighbor["state"]
+                cur_weight = cur_state_neighbor["weight"]
+                q_cur_neighbor_state = (*cur_state, int(contract_val // 100))
+                if cur_neighbor_state == cur_state:  # the case where both are the true state is counted twice
+                    continue
+                # print(q_cur_neighbor_state)
+                Q[q_cur_neighbor_state] = (Q[q_cur_neighbor_state] + cur_weight * alpha * (
+                        row["Reward"] + discount_factor * np.max(Q[next_state, :]) - Q[q_cur_neighbor_state]
+                ))
+
             for next_state_neighbor in next_state_neighbors:
-                cur_neighbor_state = cur_state_neighbor.state
-                next_neighbor_state = next_state_neighbor.state
-                cur_weight = cur_state_neighbor.weight
-                next_weight = next_state_neighbor.weight
-                Q[cur_neighbor_state] = (Q[cur_neighbor_state] + cur_weight * next_weight * alpha * (
-                            row["Reward"] + discount_factor * np.max(Q[next_neighbor_state, :]) - Q[cur_neighbor_state]
-                        ))
+                next_neighbor_state = next_state_neighbor["state"]
+                next_weight = next_state_neighbor["weight"]
+                q_cur_state = (*cur_state, int(contract_val // 100))
+                Q[q_cur_state] = (Q[q_cur_state] + next_weight * alpha * (
+                        row["Reward"] + discount_factor * np.max(Q[next_neighbor_state, :]) - Q[q_cur_state]
+                ))
 
     # Now that we have optimal Q-values, find the optimal utilities and actions
     for week_of_year_idx in range(11):
@@ -520,8 +615,22 @@ def q_learn_utilities_and_actions(discount_factor, data, num_iters=100):
                     A[state] = best_contract_idx
                     U[state] = Q[state, best_contract_idx]
 
-    np.savetxt("Q q-learning.txt", Q)
-    np.savetxt("U q-learning.txt", U)
-    np.savetxt("A q-learning.txt", A)
+    # np.savetxt("Q q-learning.txt", Q)
+    # np.savetxt("U q-learning.txt", U)
+    # np.savetxt("A q-learning.txt", A)
     return Q, U, A
 
+
+Q, U, A = q_learn_utilities_and_actions(0.95, results_df, Q=np.zeros((11, 11, 11, 11, 11)), num_iters=100)
+
+
+#%% Save q-learning outputs
+
+q_output = open('Q q-learning.pkl', 'wb')
+pickle.dump(Q, q_output)
+
+u_output = open('U q-learning.pkl', 'wb')
+pickle.dump(U, u_output)
+
+a_output = open('A q-learning.pkl', 'wb')
+pickle.dump(A, a_output)
